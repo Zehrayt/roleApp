@@ -46,6 +46,16 @@ MOCK_RESPONSES: dict[str, EvaluateResponse] = {
         response_speaker="coach",
         updated_scenario_state={},
     ),
+    "cafe": EvaluateResponse(
+        accepted=False,
+        correction="Could I have a medium latte with oat milk, please?",
+        npc_response=(
+            "Sure thing. You could say, "
+            "'Could I have a medium latte with oat milk, please?'"
+        ),
+        response_speaker="coach",
+        updated_scenario_state={},
+    ),
 }
 
 
