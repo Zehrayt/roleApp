@@ -32,6 +32,7 @@ async def _record_extraction_background(
     session_id: int,
     dialogue_id: int | None,
     utterance: str,
+    location: str | None = None,
 ) -> None:
 
     db = SessionLocal()
@@ -46,6 +47,7 @@ async def _record_extraction_background(
             dialogue_id=dialogue_id,
             utterance=utterance,
             result=extraction_result,
+            location=location,
         )
         db.commit()
     except Exception:
@@ -192,6 +194,7 @@ async def process_turn(
             session_id=session.id,
             dialogue_id=dialogue_id,
             utterance=request.user_text,
+            location=session.location,
         )
 
     return result

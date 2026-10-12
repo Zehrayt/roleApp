@@ -127,6 +127,8 @@ Spell Book, oyuncunun hangi kelimede neden zorlandığını tutan tek doğru kay
 
 ### 4.1 Kelime kaydı
 
+> **[Sürüm 4 uygulama notu]** İlk sürümde tablo yalnızca ham olaylardır (`word_events`: kullanıcı, lemma, yüzey biçimi, olay türü, mekân, örnek cümle, zaman). Aşağıdaki alanlar okuma anında bu olaylardan hesaplanır (`api/services/spell_book.py`). `family_id`, `cefr_level`, SRS alanları ve `mastered` durumu sonraki adımdadır. Olay kaynakları `docs/MIMARI.md` 6.1.1'de.
+
 | Alan | Tip | Açıklama |
 | --- | --- | --- |
 | `lemma` | text | Kök biçim (spaCy lemmatizer). “abundantly” ayrı kayıt, “abundant” ile `family_id` paylaşır |
@@ -2126,7 +2128,8 @@ Konuşma akışı: oyuncu menzile girer → "E · X ile konuş" istemi (dokunara
 | 0 | Blok kasaba, kamera, kesit, yol bulma, 3 NPC'nin backend'e bağlanması, portal ile Phaser modlarına geçiş, birim testleri | Yapıldı (12 Ekim 2026) |
 | 0 | `package-lock.json` güncellemesi (`npm install`), Docker ile uçtan uca deneme | Yapılacak |
 | 1 | Kelime nesneleri (35, 25.6) | Yapıldı (12 Ekim 2026) |
-| 1 | Spell Book paneli kasabada | Yapılacak |
+| 1 | Spell Book MVP: `word_events` tablosu, 4.2 formülü ve 4.3 eşikleri (`mastered` hariç), `GET /api/spellbook/{user_id}`, kasabada Büyü Kitabı çekmecesi | Yapıldı (12 Ekim 2026) |
+| 1 | Spell Book: kırmızı kelime enjeksiyonu (4.5), SRS (4.4), `mastered` | Yapılacak |
 | 1 | Harita JSON'a taşınır (33.4), editör kararı | Yapılacak |
 | 1 | Mobil: Capacitor sarmalayıcı, dokunmatik zoom (iki parmak), performans ölçümü | Yapılacak |
 | 2 | Dublaj Stüdyosu ve Gelişim Defteri kasabaya taşınır, Phaser kaldırılır | Yapılacak |

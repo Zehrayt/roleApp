@@ -11,6 +11,7 @@ from models.models import (
     VocabularyErrorTypeStat,
     VocabularyLevelStat,
 )
+from services.word_events import record_extraction_words
 from shared.schemas import ExtractionResult
 
 
@@ -24,6 +25,7 @@ class LearningAnalyticsService:
         dialogue_id: int | None,
         utterance: str,
         result: ExtractionResult,
+        location: str | None = None,
     ) -> bool:
         """Persist one event and atomically increment its aggregate counters.
 
@@ -119,5 +121,14 @@ class LearningAnalyticsService:
                     },
                 )
             )
+
+        # Word-level signals for the Spell Book.
+        record_extraction_words(
+            db,
+            user_id=user_id,
+            location=location,
+            result=result,
+            utterance=utterance,
+        )
 
         return True

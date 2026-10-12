@@ -1,4 +1,5 @@
 import http from "node:http";
+import { readFileSync } from "node:fs";
 
 const headers = {
   "Access-Control-Allow-Origin": "http://localhost:5173",
@@ -52,9 +53,67 @@ function keyFor(location, concept) {
   return `${location}:${concept}`;
 }
 
+// Uses the real word lists so the town's vocabulary props behave like the API.
+function loadVocabulary(location) {
+  if (!/^[a-z_]+$/.test(String(location))) return { concepts: [] };
+  try {
+    const url = new URL(`../../api/game_data/vocabulary/${location}.json`, import.meta.url);
+    return JSON.parse(readFileSync(url, "utf-8"));
+  } catch {
+    return { concepts: [] };
+  }
+}
+
+// Spell Book: raw word events + the same scoring as api/services/spell_book.py.
+const wordEvents = []; // { lemma, type, location, at }
+const WEIGHTS = { meaning_fail: 25, pronunciation_fail: 20, usage_fail: 15, passive_encounter: -3, context_success: -10, active_success: -15 };
+
+function spellBook() {
+  const now = Date.now();
+  const byLemma = new Map();
+  for (const e of wordEvents) byLemma.set(e.lemma, [...(byLemma.get(e.lemma) ?? []), e]);
+  const order = { red: 0, yellow: 1, new: 2, green: 3 };
+  return [...byLemma.entries()].map(([lemma, events]) => {
+    const raw = events.reduce((sum, e) => sum + WEIGHTS[e.type] * 2 ** (-(now - e.at) / 86400000 / 14), 0);
+    const score = Math.round(Math.min(100, Math.max(0, raw)) * 10) / 10;
+    const count = (type) => events.filter((e) => e.type === type).length;
+    const successes = count("active_success") + count("context_success");
+    const status = score >= 60 ? "red" : score >= 30 ? "yellow" : successes >= 2 ? "green" : "new";
+    return {
+      lemma, status, struggle_score: score,
+      meaning_fails: count("meaning_fail"), pronunciation_fails: count("pronunciation_fail"), usage_fails: count("usage_fail"),
+      active_successes: successes,
+      sources: [...new Set(events.map((e) => e.location).filter(Boolean))].sort(),
+      example: null,
+      last_event_at: new Date(events[events.length - 1].at).toISOString(),
+    };
+  }).sort((a, b) => order[a.status] - order[b.status] || b.struggle_score - a.struggle_score || a.lemma.localeCompare(b.lemma));
+}
+
+function conceptProgress(location, concept) {
+  const earned = earnedWords.get(keyFor(location, concept.concept)) ?? new Set();
+  const words = concept.words.map((w) => ({ word: w.word, earned: earned.has(w.word.toLowerCase()) }));
+  return { concept: concept.concept, words, completed: words.every((w) => w.earned) };
+}
+
 const server = http.createServer((request, response) => {
   if (request.method === "OPTIONS") {
     reply(response, 204, {});
+    return;
+  }
+
+  if (request.method === "GET" && /^\/api\/spellbook\/[^/]+$/.test(request.url ?? "")) {
+    reply(response, 200, spellBook());
+    return;
+  }
+
+  const progressMatch = request.method === "GET"
+    ? /^\/api\/vocabulary\/progress\/[^/]+\/([^/]+)$/.exec(request.url ?? "")
+    : null;
+  if (progressMatch) {
+    const location = decodeURIComponent(progressMatch[1]);
+    const vocab = loadVocabulary(location);
+    reply(response, 200, vocab.concepts.map((c) => conceptProgress(location, c)));
     return;
   }
 
@@ -94,30 +153,32 @@ const server = http.createServer((request, response) => {
         return;
       }
 
-      const key = keyFor(parsed.location, parsed.concept);
-      const words = earnedWords.get(key) ?? new Set();
-      if (words.has(word)) {
-        reply(response, 200, {
-          matched: true,
-          already_earned: true,
-          reward_coins: 0,
-          words_earned: words.size,
-          words_total: words.size,
-          concept_completed: true,
-        });
+      const concept = loadVocabulary(parsed.location).concepts.find((c) => c.concept === parsed.concept);
+      const entry = concept?.words.find((w) => w.word.toLowerCase() === word);
+      if (concept && !entry && concept.words[0]) {
+        wordEvents.push({ lemma: concept.words[0].word, type: "meaning_fail", location: parsed.location, at: Date.now() });
+      }
+      if (concept && entry) {
+        wordEvents.push({ lemma: entry.word, type: "active_success", location: parsed.location, at: Date.now() });
+      }
+      if (!concept || !entry) {
+        reply(response, 200, { matched: false, already_earned: false, reward_coins: 0, concept_completed: false });
         return;
       }
 
+      const key = keyFor(parsed.location, parsed.concept);
+      const words = earnedWords.get(key) ?? new Set();
+      const already = words.has(word);
       words.add(word);
       earnedWords.set(key, words);
+      const total = concept.words.length;
       reply(response, 200, {
         matched: true,
-        already_earned: false,
-        reward_coins: 10,
+        already_earned: already,
+        reward_coins: already ? 0 : entry.reward_coins ?? 10,
         words_earned: words.size,
-        words_total: words.size + 1, // the mock does not know the real total, so it always shows one remaining word
-        concept_completed: false,
-        total_coins: 10 * words.size,
+        words_total: total,
+        concept_completed: words.size >= total,
       });
       return;
     }

@@ -75,6 +75,22 @@ export interface VocabularyProgressEntry {
   completed: boolean;
 }
 
+export type SpellBookStatus = "new" | "yellow" | "red" | "green";
+
+/** One word in the player's Spell Book (GET /api/spellbook/{user_id}). */
+export interface SpellBookEntry {
+  lemma: string;
+  status: SpellBookStatus;
+  struggle_score: number;
+  meaning_fails: number;
+  pronunciation_fails: number;
+  usage_fails: number;
+  active_successes: number;
+  sources: string[];
+  example: string | null;
+  last_event_at: string;
+}
+
 export interface SpeechToTextResult {
   text: string;
   languageCode: string | null;
@@ -182,6 +198,12 @@ export class PraglishApiClient {
     return this.requestGet<VocabularyProgressEntry[]>(
       `/api/vocabulary/progress/${this.userId}/${this.config.location}`,
     );
+  }
+
+  public async getSpellBook(): Promise<SpellBookEntry[]> {
+    await this.startSession();
+    if (this.userId === null) return [];
+    return this.requestGet<SpellBookEntry[]>(`/api/spellbook/${this.userId}`);
   }
 
   public async getDashboard(): Promise<DashboardData> {

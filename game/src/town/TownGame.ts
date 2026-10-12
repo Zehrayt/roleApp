@@ -6,6 +6,7 @@ import { CameraRig, type CameraMode } from "./CameraRig";
 import { DialoguePanel } from "./DialoguePanel";
 import { buildMeshData, type MeshData } from "./mesher";
 import { paintBlockAtlas } from "./textures";
+import { SpellBookPanel } from "./SpellBookPanel";
 import { VocabPanel } from "./VocabPanel";
 import {
   buildTown,
@@ -72,6 +73,7 @@ export class TownGame {
   private readonly prompt: HTMLButtonElement;
   private readonly vocabPrompt: HTMLButtonElement;
   private readonly vocabPanel: VocabPanel;
+  private readonly spellBook: SpellBookPanel;
   private readonly apis = new Map<string, PraglishApiClient>();
   private readonly propHighlights = new Map<string, THREE.Box3Helper>();
   private readonly completedProps = new Set<string>();
@@ -88,7 +90,7 @@ export class TownGame {
   private segmentT = 0;
   private pendingTalk: NpcRuntime | null = null;
   private interaction: Interaction | null = null;
-  private activePanel: DialoguePanel | VocabPanel | null = null;
+  private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | null = null;
   private nearestProp: PropSpec | null = null;
   private pendingProp: PropSpec | null = null;
   private pointerDown: { x: number; y: number } | null = null;
@@ -168,6 +170,7 @@ export class TownGame {
       },
       onClose: () => this.panelClosed(this.vocabPanel),
     });
+    this.spellBook = new SpellBookPanel(host, { onClose: () => this.panelClosed(this.spellBook) });
     for (const prop of this.town.props) this.propHighlights.set(prop.id, this.createHighlight(prop));
     this.stats = this.mustQuery<HTMLElement>("[data-town-stats]");
 
@@ -256,6 +259,7 @@ export class TownGame {
         <p class="town-brand__hint">Yürümek için zemine dokun · NPC'ye yaklaşıp <kbd>E</kbd></p>
       </div>
       <nav class="town-links" aria-label="Diğer modlar">
+        <button class="town-btn town-btn--book" type="button" data-act="book">Büyü Kitabı<kbd>B</kbd></button>
         <a class="town-btn" href="studio.html?scene=DashboardScene">Gelişim defteri</a>
         <a class="town-btn" href="studio.html">Tüm modlar</a>
       </nav>
@@ -283,6 +287,7 @@ export class TownGame {
         else if (act === "zoomOut") this.rig.zoomBy(1);
         else if (act === "mode-iso") this.setCameraMode("iso");
         else if (act === "mode-perspective") this.setCameraMode("perspective");
+        else if (act === "book") this.openSpellBook();
       });
     });
     const prompt = hud.querySelector<HTMLButtonElement>(".town-prompt");
@@ -329,6 +334,7 @@ export class TownGame {
       if (k === "escape") this.activePanel?.close();
       else if (k === "e" || k === "enter") this.interact();
       else if (k === "f" && this.nearestProp) this.openVocab(this.nearestProp);
+      else if (k === "b") this.openSpellBook();
       else if (k === "q") this.rig.rotate(-1);
       else if (k === "r") this.rig.rotate(1);
       else if (k === "+" || k === "=") this.rig.zoomBy(-1);
@@ -499,7 +505,17 @@ export class TownGame {
     return api;
   }
 
-  private panelClosed(panel: DialoguePanel | VocabPanel | null): void {
+  private openSpellBook(): void {
+    const first = this.town.npcs[0];
+    const api = first ? this.apiFor(first.location) : null;
+    if (!api) return;
+    if (this.activePanel && this.activePanel !== this.spellBook) this.activePanel.close();
+    this.activePanel = this.spellBook;
+    this.host.classList.add("is-talking");
+    this.spellBook.open(api);
+  }
+
+  private panelClosed(panel: DialoguePanel | VocabPanel | SpellBookPanel | null): void {
     if (panel && this.activePanel === panel) {
       this.activePanel = null;
       this.host.classList.remove("is-talking");

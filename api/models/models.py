@@ -151,3 +151,22 @@ class IdiomUsageStat(Base):
     last_used_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class WordEvent(Base):
+    """One raw signal about a word for the Spell Book (roleApp 4.1).
+
+    event_type: meaning_fail, pronunciation_fail, usage_fail, passive_encounter,
+    context_success, active_success. Scores are recomputed from these rows.
+    """
+
+    __tablename__ = "word_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    lemma = Column(String, nullable=False, index=True)
+    surface_form = Column(String, nullable=True)
+    event_type = Column(String, nullable=False)
+    location = Column(String, nullable=True)
+    example = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

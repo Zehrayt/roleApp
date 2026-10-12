@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from models.models import User, VocabularyProgress
 from services.vocabulary_engine import VocabularyEngine
+from services.word_events import record_word_event
 
 router = APIRouter()
 
@@ -40,6 +41,17 @@ def submit_word(request: VocabularySubmitRequest, db: Session = Depends(get_db))
 
     matched_entry = VocabularyEngine.match_word(concept_data, request.word)
     if not matched_entry:
+        # The player did not know this object's name: a meaning_fail for its main word.
+        main_word = (concept_data.get("words") or [{}])[0].get("word")
+        if main_word:
+            record_word_event(
+                db,
+                user_id=request.user_id,
+                lemma=main_word,
+                event_type="meaning_fail",
+                location=request.location,
+            )
+            db.commit()
 
         return {
             "matched": False,
@@ -63,7 +75,17 @@ def submit_word(request: VocabularySubmitRequest, db: Session = Depends(get_db))
 
     words_total = len(concept_data["words"])
 
+    # Naming the object correctly is an active success for the Spell Book.
+    record_word_event(
+        db,
+        user_id=request.user_id,
+        lemma=matched_word,
+        event_type="active_success",
+        location=request.location,
+    )
+
     if already:
+        db.commit()
 
         earned_count = _count_earned(db, request.user_id, request.location, request.concept)
         return {

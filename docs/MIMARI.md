@@ -45,6 +45,8 @@ Praglish, İngilizce öğrenmeyi bir kasabada yaşamaya dönüştüren bir oyund
 | ✓ | Birim testleri: dünya, mesher, harita erişilebilirliği, NPC/senaryo eşleşmesi, kelime nesneleri (15 test) | 12.10.2026 | `src/town/__tests__/town.test.ts` |
 | ✓ | Kelime nesneleri: 9 nesneye dokun / `F` → "Bu İngilizcede ne?" paneli, Türkçe ipucu, jeton, ilerleme; vurgulama çerçevesi | 12.10.2026 | `VocabPanel.ts`, `townMap.ts` (`props`), `api/game_data/vocabulary/*.json` |
 | ✓ | Kafe için sahte AI cevabı (`USE_MOCK_AI=true` iken Leo da cevap verir) | 12.10.2026 | `api/services/ai_client.py` |
+| ✓ | Spell Book (MVP): ham kelime olayları (`word_events`), roleApp 4.2 formülüyle zorlanma puanı ve durum, `GET /api/spellbook/{user_id}`, kasabada "Büyü Kitabı" çekmecesi (`B`), süzgeçler | 12.10.2026 | `api/services/spell_book.py`, `word_events.py`, `routes/spellbook.py`, `SpellBookPanel.ts` |
+| ✓ | Sahte API (`npm run dev:mock-api`): gerçek kelime listeleri, ilerleme ve Spell Book uçları | 12.10.2026 | `game/scripts/mock-api.mjs` |
 | ✓ | Kesit yüksekliği 3'e indirildi (duvar dibindeki eşyalar görünür); kapalı panelin klavyeyi yutması düzeltildi | 12.10.2026 | `townMap.ts`, `*Panel.ts`, `town.css` |
 | ✓ | roleApp belgesi Sürüm 4'e güncellendi | 12.10.2026 | `docs/roleApp.md` |
 
@@ -56,7 +58,8 @@ Praglish, İngilizce öğrenmeyi bir kasabada yaşamaya dönüştüren bir oyund
 | --- | --- | --- | --- |
 | ☐ | `cd game && npm install` → `package-lock.json`'u commitle (three eklendi) | 0 | Bu yapılmadan Docker'daki `npm ci` hata verir |
 | ☐ | Docker ile uçtan uca deneme: gerçek AI anahtarıyla üç NPC'yle konuşma | 0 | |
-| ☐ | Spell Book paneli kasabada | 1 | roleApp 4 |
+| ☐ | Spell Book 2. adım: kırmızı kelimeleri NPC cevaplarına enjekte etmek (roleApp 4.5), SRS tekrarı (4.4), `mastered` durumu, telaffuz ve okuma olayları | 1 | Puan ve uç hazır; AI servisinin NPC prompt'una `red` kelimeler eklenecek |
+| ☐ | Backend testlerini Docker'da çalıştır: `docker compose run --rm api python -m unittest discover tests` | 0 | Spell Book formül testleri bu ortamda geçti; veritabanı katmanı henüz çalıştırılmadı |
 | ☐ | Harita JSON'a taşınır, editör kararı (MagicaVoxel içe aktarma mı, oyun içi editör mü) | 1 | roleApp 33.4 |
 | ☐ | Mobil: Capacitor, iki parmakla zoom, orta segment telefonda FPS ölçümü | 1 | roleApp 33.7, 36 |
 | ☐ | Dublaj Stüdyosu kasabaya taşınır | 2 | Sonra `DubScene` silinir |
@@ -102,6 +105,7 @@ Kural: istemci oyun kararı vermez (değerlendirme, ödül, senaryo durumu backe
 | `CameraRig.ts` | Kamera modları, dönme, zoom, takip | Evet | Hayır |
 | `DialoguePanel.ts` | NPC konuşma paneli ve backend çağrıları | Hayır (DOM) | Hayır |
 | `VocabPanel.ts` | Kelime nesnesi paneli (`/api/vocabulary/*`) | Hayır (DOM) | Tarayıcıda denendi |
+| `SpellBookPanel.ts` | Büyü Kitabı çekmecesi (`/api/spellbook/*`) | Hayır (DOM) | Tarayıcıda denendi |
 | `TownGame.ts` | Her şeyi birleştiren oyun döngüsü | Evet | Hayır |
 | `main.ts`, `town.css` | Giriş noktası ve HUD stilleri | — | — |
 
@@ -114,7 +118,8 @@ Paylaşılan: `engine/PathFinder.ts` (A*), `services/PraglishApiClient.ts` (API 
 | Oturum | Misafir kullanıcı ve oyun oturumu oluşturur | `api/routes/session.py` |
 | Tur | Cümleyi AI servisine gönderir, senaryo durumunu ve ödülü günceller | `api/routes/turn.py`, `api/services/*` |
 | Ses | STT ve TTS isteklerini AI servisine iletir | `api/routes/speech.py` |
-| Kelime | Nesne-kelime eşleştirme ve ilerleme | `api/routes/vocabulary.py` |
+| Kelime | Nesne-kelime eşleştirme ve ilerleme; Spell Book'a olay yazar | `api/routes/vocabulary.py` |
+| Spell Book | Kelime olaylarından zorlanma puanı ve durum hesaplar | `api/services/spell_book.py` (saf), `api/services/word_events.py`, `api/routes/spellbook.py` |
 | Analitik | Gelişim defteri verisi | `api/routes/analytics.py` |
 | AI servisi | Değerlendirme + NPC cevabı, düzeltme, STT, TTS, çıkarım | `ai/main.py`, `ai/modules/*` |
 | Senaryolar | Mekân başına hedef alanlar ve ödüller | `api/game_data/scenarios/*.json` |
@@ -158,6 +163,18 @@ Mikrofon: kayıt → `POST /api/speech/stt` → dönen metin aynı tur akışın
 | `POST /api/speech/tts` | `text, voice, style` | ses (blob) |
 | `POST /api/vocabulary/submit`, `GET /api/vocabulary/progress/{user}/{location}` | kelime | eşleşme, ilerleme |
 | `POST /api/analytics/dashboard` | misafir kimliği | gelişim verisi |
+| `GET /api/spellbook/{user_id}` | — | kelime listesi: `lemma, status, struggle_score, *_fails, active_successes, sources, example` |
+
+### 6.1.1 Spell Book olay kaynakları
+
+| Nerede | Olay | Ağırlık |
+| --- | --- | --- |
+| Kelime nesnesi: yanlış cevap | Kavramın ana kelimesine `meaning_fail` | +25 |
+| Kelime nesnesi: doğru cevap | Söylenen kelimeye `active_success` | −15 |
+| NPC turu kabul (çıkarım) | Cümledeki isim/sıfatlara `active_success`, örnek cümle saklanır | −15 |
+| NPC turu ret (çıkarım) | Hatalı kelimeye `usage_fail` (anlam/kelime seçimi hatasında `meaning_fail`); cümle saklanmaz | +15 / +25 |
+
+Puan: olayların ağırlığı 14 günlük yarılanmayla azalır, 0–100 arasına sıkıştırılır. ≥ 60 kırmızı, 30–60 sarı, < 30 ve ≥ 2 başarı yeşil, diğerleri yeni.
 
 API adresi: `localhost`'ta `http://localhost:8000`, aksi halde `https://praglish-api.onrender.com` (`index.html` ve `studio.html` içindeki küçük betik).
 
@@ -213,7 +230,7 @@ npm test                         # vitest (kasaba testleri dahil)
 npm run typecheck
 ```
 
-Kontroller: dokun/tıkla = yürü · `E` / `Enter` = konuş / gir · `F` = kelime nesnesi · `Q` / `R` = kamerayı döndür · tekerlek, `+` / `-` = zoom · `WASD` / oklar = adım · `Esc` = paneli kapat.
+Kontroller: dokun/tıkla = yürü · `E` / `Enter` = konuş / gir · `F` = kelime nesnesi · `B` = Büyü Kitabı · `Q` / `R` = kamerayı döndür · tekerlek, `+` / `-` = zoom · `WASD` / oklar = adım · `Esc` = paneli kapat.
 
 ---
 

@@ -163,3 +163,45 @@ kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.75; margin-l
 .town-dialogue__msg.is-vocab-bad span { color: var(--accent); }
 .town-dialogue__msg.is-vocab-error span { color: var(--bad); }
 .town-dialogue__msg.is-vocab-user strong { color: var(--user); }
+
+/* Spell Book drawer */
+.town-btn--book { background: rgba(242, 177, 52, 0.18); border-color: rgba(242, 177, 52, 0.5); }
+.town-book {
+  position: absolute; z-index: 12; top: 16px; right: 16px; bottom: 16px;
+  width: min(400px, calc(100% - 32px)); box-sizing: border-box; padding: 14px 16px;
+  display: grid; grid-template-rows: auto auto auto 1fr auto; gap: 10px;
+  background: rgba(24, 30, 44, 0.97); border: 1px solid var(--panel-line); border-radius: 6px;
+  box-shadow: 0 10px 34px rgba(10, 20, 40, 0.35);
+}
+.town-book__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.town-book__eyebrow { margin: 0; font: 500 11px var(--font-display); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.town-book__title { margin: 0; font: 700 24px/1.1 var(--font-display); }
+.town-book__summary { margin: 0; font-size: 13px; color: var(--panel-muted); font-variant-numeric: tabular-nums; }
+.town-book__filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.town-book__filters button {
+  font: 500 13px var(--font-display); color: var(--panel-fg); cursor: pointer;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--panel-line); border-radius: 999px; padding: 4px 10px;
+}
+.town-book__filters button[aria-pressed="true"] { background: var(--panel-fg); color: #1d2433; }
+.town-book__filters button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.town-book__list { list-style: none; margin: 0; padding: 0 4px 0 0; overflow-y: auto; display: grid; align-content: start; gap: 8px; min-height: 0; }
+.town-book__empty { color: var(--panel-muted); font-size: 14px; line-height: 1.45; }
+.town-book__word {
+  --tone: var(--panel-muted);
+  display: grid; gap: 6px; padding: 10px 12px; border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04); border-left: 3px solid var(--tone);
+}
+.town-book__word.is-red { --tone: #ff8e7a; }
+.town-book__word.is-yellow { --tone: #f2c94c; }
+.town-book__word.is-green { --tone: var(--good); }
+.town-book__word.is-new { --tone: var(--user); }
+.town-book__word-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.town-book__word-head strong { font: 700 18px var(--font-display); }
+.town-book__chip { font: 500 12px var(--font-display); color: var(--tone); white-space: nowrap; }
+.town-book__bar { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.town-book__bar i { display: block; height: 100%; background: var(--tone); }
+.town-book__facts { margin: 0; font-size: 12px; color: var(--panel-muted); }
+.town-book__example { font-size: 13px; color: var(--panel-fg); font-style: italic; }
+@media (max-width: 640px) {
+  .town-book { top: 8px; right: 8px; left: 8px; bottom: 8px; width: auto; }
+}
