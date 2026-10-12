@@ -8,8 +8,11 @@ if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
 
 from services.spell_book import (  # noqa: E402
+    DailyExposure,
     WordEventData,
     build_spell_book,
+    find_used_words,
+    select_focus_words,
     status_for,
     struggle_score,
 )
@@ -75,6 +78,42 @@ class BuildSpellBookTests(unittest.TestCase):
 
     def test_empty(self):
         self.assertEqual(build_spell_book([], NOW), [])
+
+
+def entry(lemma, status, score, sources=()):
+    return {"lemma": lemma, "status": status, "struggle_score": score, "sources": list(sources)}
+
+
+class FocusWordTests(unittest.TestCase):
+    def test_picks_red_before_yellow_and_at_most_two(self):
+        book = [
+            entry("bookshelf", "yellow", 50),
+            entry("croissant", "red", 61),
+            entry("receipt", "red", 90),
+            entry("plant", "green", 0),
+            entry("latte", "new", 0),
+        ]
+        self.assertEqual(select_focus_words(book, "bakery"), ["receipt", "croissant"])
+
+    def test_prefers_words_met_at_the_same_place(self):
+        book = [entry("receipt", "red", 70), entry("croissant", "red", 61, sources=["bakery"])]
+        self.assertEqual(select_focus_words(book, "bakery", limit=1), ["croissant"])
+
+    def test_daily_quota(self):
+        book = [entry("croissant", "red", 80), entry("receipt", "red", 70)]
+        exposure = {
+            "croissant": DailyExposure(count=3, locations=frozenset({"bakery"})),
+            "receipt": DailyExposure(count=2, locations=frozenset({"cafe", "library"})),
+        }
+        # croissant: 3 times already; receipt: already used by two other places
+        self.assertEqual(select_focus_words(book, "bakery", exposure), [])
+        # the same place may keep using receipt until the daily count is reached
+        self.assertEqual(select_focus_words(book, "cafe", exposure), ["receipt"])
+
+    def test_find_used_words(self):
+        text = "Here are two fresh Croissants! Do you need a receipt?"
+        self.assertEqual(find_used_words(text, ["croissant", "receipt", "bake"]), ["croissant", "receipt"])
+        self.assertEqual(find_used_words("A bakery is open.", ["bake"]), [])
 
 
 if __name__ == "__main__":

@@ -15,6 +15,18 @@ class TextGenerator(Protocol):
     ) -> str: ...
 
 
+def _focus_words_instruction(identity: NPCIdentity) -> str:
+    if not identity.focus_words:
+        return ""
+    words = ", ".join(f'"{w}"' for w in identity.focus_words[:2])
+    return (
+        f"The player is learning these words: {words}. If one of them fits the scene "
+        "naturally, use it once in your reply in a clear, helpful context. Never force a "
+        "word that does not fit, never explain or define it, and never mention that the "
+        "player is learning it.\n\n"
+    )
+
+
 def _npc_system_instruction(identity: NPCIdentity) -> str:
     return (
         "You are an NPC in an English-learning role-play game. "
@@ -23,6 +35,7 @@ def _npc_system_instruction(identity: NPCIdentity) -> str:
         "already accepted every user turn you receive. Ask at most one question per turn. "
         "Keep your reply short: 1-2 short sentences, never more than 3 - this is a spoken "
         "role-play, not an essay, and shorter replies also mean the model finishes faster.\n\n"
+        f"{_focus_words_instruction(identity)}"
         f"NPC identity and scenario data:\n{identity.model_dump_json(indent=2)}"
     )
 

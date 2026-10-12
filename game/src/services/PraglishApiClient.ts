@@ -28,6 +28,8 @@ export interface TurnResponse {
   probability_percent: number | null;
   evaluation_reason: string | null;
   rewards: RewardInfo | null;
+  /** Spell Book words the NPC used in npc_response (highlighted in the panel). */
+  used_focus_words?: string[];
 }
 
 export interface TtsVoiceProfile {

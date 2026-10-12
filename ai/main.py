@@ -304,6 +304,7 @@ def evaluate_and_respond(payload: EvaluateRequest):
             for index, goal in enumerate(goals, start=1)
         ],
         scenario_state=payload.scenario_state,
+        focus_words=payload.focus_words[:2],
     )
     npc = NpcModule(identity=identity, generator=get_npc_generator())
     npc.dialogue_history = history

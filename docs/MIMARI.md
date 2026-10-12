@@ -46,6 +46,7 @@ Praglish, İngilizce öğrenmeyi bir kasabada yaşamaya dönüştüren bir oyund
 | ✓ | Kelime nesneleri: 9 nesneye dokun / `F` → "Bu İngilizcede ne?" paneli, Türkçe ipucu, jeton, ilerleme; vurgulama çerçevesi | 12.10.2026 | `VocabPanel.ts`, `townMap.ts` (`props`), `api/game_data/vocabulary/*.json` |
 | ✓ | Kafe için sahte AI cevabı (`USE_MOCK_AI=true` iken Leo da cevap verir) | 12.10.2026 | `api/services/ai_client.py` |
 | ✓ | Spell Book (MVP): ham kelime olayları (`word_events`), roleApp 4.2 formülüyle zorlanma puanı ve durum, `GET /api/spellbook/{user_id}`, kasabada "Büyü Kitabı" çekmecesi (`B`), süzgeçler | 12.10.2026 | `api/services/spell_book.py`, `word_events.py`, `routes/spellbook.py`, `SpellBookPanel.ts` |
+| ✓ | Kırmızı kelime enjeksiyonu (MVP): API her turda en fazla 2 kırmızı/sarı kelime seçer (günlük kota: kelime başı 3 kez, en fazla 2 mekân), AI servisi NPC'ye "uyuyorsa kullan" der, kullanılan kelime `passive_encounter` olarak yazılır ve panelde vurgulanır | 12.10.2026 | `spell_book.py` (`select_focus_words`, `find_used_words`), `word_events.py`, `routes/turn.py`, `ai/modules/npc.py`, `DialoguePanel.ts` |
 | ✓ | Sahte API (`npm run dev:mock-api`): gerçek kelime listeleri, ilerleme ve Spell Book uçları | 12.10.2026 | `game/scripts/mock-api.mjs` |
 | ✓ | Kesit yüksekliği 3'e indirildi (duvar dibindeki eşyalar görünür); kapalı panelin klavyeyi yutması düzeltildi | 12.10.2026 | `townMap.ts`, `*Panel.ts`, `town.css` |
 | ✓ | roleApp belgesi Sürüm 4'e güncellendi | 12.10.2026 | `docs/roleApp.md` |
@@ -58,7 +59,7 @@ Praglish, İngilizce öğrenmeyi bir kasabada yaşamaya dönüştüren bir oyund
 | --- | --- | --- | --- |
 | ☐ | `cd game && npm install` → `package-lock.json`'u commitle (three eklendi) | 0 | Bu yapılmadan Docker'daki `npm ci` hata verir |
 | ☐ | Docker ile uçtan uca deneme: gerçek AI anahtarıyla üç NPC'yle konuşma | 0 | |
-| ☐ | Spell Book 2. adım: kırmızı kelimeleri NPC cevaplarına enjekte etmek (roleApp 4.5), SRS tekrarı (4.4), `mastered` durumu, telaffuz ve okuma olayları | 1 | Puan ve uç hazır; AI servisinin NPC prompt'una `red` kelimeler eklenecek |
+| ☐ | Spell Book 3. adım: anlama kontrolü sorusu (4.5), bağlam uygunluğu için embedding (bugün "aynı mekânda görüldüyse ×1,5"), SRS tekrarı (4.4), `mastered`, telaffuz ve okuma olayları | 1 | Enjeksiyon MVP çalışıyor |
 | ☐ | Backend testlerini Docker'da çalıştır: `docker compose run --rm api python -m unittest discover tests` | 0 | Spell Book formül testleri bu ortamda geçti; veritabanı katmanı henüz çalıştırılmadı |
 | ☐ | Harita JSON'a taşınır, editör kararı (MagicaVoxel içe aktarma mı, oyun içi editör mü) | 1 | roleApp 33.4 |
 | ☐ | Mobil: Capacitor, iki parmakla zoom, orta segment telefonda FPS ölçümü | 1 | roleApp 33.7, 36 |
@@ -158,7 +159,7 @@ Mikrofon: kayıt → `POST /api/speech/stt` → dönen metin aynı tur akışın
 | Uç | Gövde | Dönüş |
 | --- | --- | --- |
 | `POST /api/session/start` | `username, password, location, npc_role` | `session_id, user_id` |
-| `POST /api/session/{id}/turn` | `user_text` | `accepted, correction, npc_response, response_speaker, rewards…` |
+| `POST /api/session/{id}/turn` | `user_text` | `accepted, correction, npc_response, response_speaker, rewards, used_focus_words…` |
 | `POST /api/speech/stt` | form-data `audio` | `text, language_code` |
 | `POST /api/speech/tts` | `text, voice, style` | ses (blob) |
 | `POST /api/vocabulary/submit`, `GET /api/vocabulary/progress/{user}/{location}` | kelime | eşleşme, ilerleme |
@@ -173,6 +174,26 @@ Mikrofon: kayıt → `POST /api/speech/stt` → dönen metin aynı tur akışın
 | Kelime nesnesi: doğru cevap | Söylenen kelimeye `active_success` | −15 |
 | NPC turu kabul (çıkarım) | Cümledeki isim/sıfatlara `active_success`, örnek cümle saklanır | −15 |
 | NPC turu ret (çıkarım) | Hatalı kelimeye `usage_fail` (anlam/kelime seçimi hatasında `meaning_fail`); cümle saklanmaz | +15 / +25 |
+| NPC cevabında odak kelime geçti | `passive_encounter`, NPC cümlesi örnek olarak saklanır | −3 |
+
+### 6.1.2 Kırmızı kelime akışı (roleApp 4.5)
+
+```mermaid
+sequenceDiagram
+  participant K as Kasaba
+  participant A as API (turn)
+  participant AI as AI servisi
+  K->>A: POST /api/session/{id}/turn
+  A->>A: focus_words_for(user, mekân) → en fazla 2 kırmızı/sarı kelime
+  A->>AI: /evaluate-and-respond {…, focus_words}
+  AI->>AI: NPC sistem talimatı: "uyuyorsa doğal biçimde kullan"
+  AI-->>A: npc_response
+  A->>A: find_used_words → passive_encounter yaz
+  A-->>K: TurnResponse {…, used_focus_words}
+  K->>K: kelimeler panelde vurgulanır
+```
+
+Kurallar: öncelik = zorlanma puanı (×1,5 kelime aynı mekânda görüldüyse); kırmızılar sarılardan önce; bir kelime günde en fazla 3 kez ve en fazla 2 farklı mekânda kullanılır; NPC kelimeyi kullanmazsa zorla eklenmez. Sahte AI modunda (`USE_MOCK_AI=true`) NPC cevapları sabit olduğu için enjeksiyon görülmez; sahte istemci API'si (`npm run dev:mock-api`) ise akışı taklit eder.
 
 Puan: olayların ağırlığı 14 günlük yarılanmayla azalır, 0–100 arasına sıkıştırılır. ≥ 60 kırmızı, 30–60 sarı, < 30 ve ≥ 2 başarı yeşil, diğerleri yeni.
 

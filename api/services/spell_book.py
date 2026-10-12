@@ -11,6 +11,7 @@ otherwise new.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, Optional
@@ -118,3 +119,65 @@ def build_spell_book(events: Iterable[WordEventData], now: datetime) -> list[dic
 
     entries.sort(key=lambda e: (_STATUS_ORDER[e["status"]], -e["struggle_score"], e["lemma"]))
     return entries
+
+
+# --- NPC injection (roleApp 4.5) -------------------------------------------
+
+MAX_FOCUS_WORDS = 2
+DAILY_WORD_LIMIT = 3
+DAILY_NPC_LIMIT = 2
+SAME_PLACE_BONUS = 1.5
+
+
+@dataclass(frozen=True)
+class DailyExposure:
+    """How often a word was already put into NPC replies today, and where."""
+
+    count: int = 0
+    locations: frozenset[str] = frozenset()
+
+
+def select_focus_words(
+    entries: Iterable[dict],
+    location: str,
+    exposure_today: dict[str, DailyExposure] | None = None,
+    limit: int = MAX_FOCUS_WORDS,
+) -> list[str]:
+    """Picks up to `limit` red/yellow words for an NPC at `location`.
+
+    Priority = struggle_score, x1.5 when the word was met at this place (a cheap
+    stand-in for the spec's embedding-based context fit). Daily quota: a word is
+    injected at most 3 times a day and by at most 2 different places.
+    """
+    exposure_today = exposure_today or {}
+    candidates = []
+    for entry in entries:
+        if entry.get("status") not in ("red", "yellow"):
+            continue
+        lemma = entry["lemma"]
+        seen = exposure_today.get(lemma, DailyExposure())
+        if seen.count >= DAILY_WORD_LIMIT:
+            continue
+        if location not in seen.locations and len(seen.locations) >= DAILY_NPC_LIMIT:
+            continue
+        priority = float(entry.get("struggle_score", 0.0))
+        if location in entry.get("sources", []):
+            priority *= SAME_PLACE_BONUS
+        red_first = 0 if entry["status"] == "red" else 1
+        candidates.append((red_first, -priority, lemma))
+    candidates.sort()
+    return [lemma for _, _, lemma in candidates[:limit]]
+
+
+def find_used_words(text: str, words: Iterable[str]) -> list[str]:
+    """Words from `words` that appear in `text` (whole word, simple inflections)."""
+    used = []
+    lowered = text.lower()
+    for word in words:
+        lemma = normalize_lemma(word)
+        if not lemma:
+            continue
+        pattern = r"\b" + re.escape(lemma) + r"(?:s|es|ed|d|ing)?\b"
+        if re.search(pattern, lowered):
+            used.append(lemma)
+    return used

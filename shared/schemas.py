@@ -25,6 +25,8 @@ class NPCIdentity(BaseModel):
     personality: str
     tasks: list[NPCTask] = Field(default_factory=list)
     scenario_state: dict[str, Any] = Field(default_factory=dict)
+    # Spell Book words the player struggles with; used only if they fit naturally.
+    focus_words: list[str] = Field(default_factory=list)
 
 
 class LanguageEvaluationInput(BaseModel):
@@ -140,6 +142,8 @@ class EvaluateRequest(BaseModel):
     scenario_state: dict = Field(default_factory=dict)
     dialogue_history: list[DialogueTurn] = Field(default_factory=list)
     user_text: str
+    # Red/yellow Spell Book words chosen by the API for this turn (roleApp 4.5).
+    focus_words: list[str] = Field(default_factory=list)
 
 
 class RewardInfo(BaseModel):
@@ -158,6 +162,8 @@ class EvaluateResponse(BaseModel):
     probability_percent: Optional[float] = Field(default=None, ge=0, le=100)
     evaluation_reason: Optional[str] = None
     rewards: Optional[RewardInfo] = None
+    # Focus words that actually appear in npc_response (set by the API).
+    used_focus_words: list[str] = Field(default_factory=list)
 
 
 class TTSRequest(BaseModel):

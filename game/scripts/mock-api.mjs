@@ -64,6 +64,9 @@ function loadVocabulary(location) {
   }
 }
 
+const sessions = []; // index = session id - 1 -> location
+const PLACE_NAMES = { bakery: "bakery", library: "library", cafe: "café" };
+
 // Spell Book: raw word events + the same scoring as api/services/spell_book.py.
 const wordEvents = []; // { lemma, type, location, at }
 const WEIGHTS = { meaning_fail: 25, pronunciation_fail: 20, usage_fail: 15, passive_encounter: -3, context_success: -10, active_success: -15 };
@@ -121,16 +124,33 @@ const server = http.createServer((request, response) => {
   request.on("data", (chunk) => { body += chunk; });
   request.on("end", () => {
     if (request.method === "POST" && request.url === "/api/session/start") {
-      reply(response, 200, { session_id: 1, user_id: 1, location: "bakery", npc_role: "baker" });
+      const parsed = JSON.parse(body || "{}");
+      const location = String(parsed.location ?? "bakery");
+      const sessionId = sessions.length + 1;
+      sessions.push(location);
+      reply(response, 200, { session_id: sessionId, user_id: 1, location, npc_role: parsed.npc_role ?? "baker" });
       return;
     }
 
     if (request.method === "POST" && /^\/api\/session\/\d+\/turn$/.test(request.url ?? "")) {
       const parsed = JSON.parse(body || "{}");
+      const sessionId = Number((request.url ?? "").split("/")[3]);
+      const location = sessions[sessionId - 1] ?? "bakery";
+      const place = PLACE_NAMES[location] ?? "here";
+      // Like the real API: weave one red/yellow Spell Book word into the reply.
+      const focus = spellBook().find((e) => e.status === "red" || e.status === "yellow");
+      let npcResponse = `Nice to meet you! You said: "${parsed.user_text}" What would you like from the ${place}?`;
+      const used = [];
+      if (focus) {
+        npcResponse += ` By the way, the ${focus.lemma} is right over there.`;
+        used.push(focus.lemma);
+        wordEvents.push({ lemma: focus.lemma, type: "passive_encounter", location, at: Date.now() });
+      }
       reply(response, 200, {
+        used_focus_words: used,
         accepted: true,
         correction: null,
-        npc_response: `Nice to meet you! You said: "${parsed.user_text}" What would you like from the bakery?`,
+        npc_response: npcResponse,
         response_speaker: "npc",
         updated_scenario_state: { item: null, quantity: null },
         probability_percent: 92,

@@ -205,3 +205,9 @@ kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.75; margin-l
 @media (max-width: 640px) {
   .town-book { top: 8px; right: 8px; left: 8px; bottom: 8px; width: auto; }
 }
+
+/* Spell Book words used by an NPC */
+.town-focus {
+  background: rgba(242, 177, 52, 0.22); color: inherit;
+  border-bottom: 2px dotted var(--accent); border-radius: 2px; padding: 0 2px;
+}

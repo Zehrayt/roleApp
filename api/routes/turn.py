@@ -13,6 +13,7 @@ from services.extraction_eligibility import should_extract_after_turn
 from services.learning_analytics import LearningAnalyticsService
 from services.reward_engine import RewardEngine
 from services.scenario_engine import ScenarioEngine
+from services.word_events import focus_words_for, record_npc_exposure
 from shared.schemas import (
     EvaluateRequest,
     EvaluateResponse,
@@ -96,12 +97,21 @@ async def process_turn(
     )
     dialogue_history = build_evaluator_history(dialogues)
 
+    # Spell Book words this NPC may use in its reply (roleApp 4.5).
+    try:
+        focus_words = focus_words_for(db, session.user_id, session.location)
+    except Exception:
+        logger.exception("Could not pick focus words for session %s", session.id)
+        db.rollback()  # nothing has been written yet; keep the session usable
+        focus_words = []
+
     payload = EvaluateRequest(
         location=session.location,
         npc_role=session.npc_role,
         scenario_state=session.scenario_state or {},
         dialogue_history=dialogue_history,
         user_text=request.user_text,
+        focus_words=focus_words,
     )
 
 
@@ -129,6 +139,15 @@ async def process_turn(
         db.add(user_dialogue)
         db.flush()
         dialogue_id = user_dialogue.id
+
+    if result.response_speaker == "npc" and focus_words:
+        result.used_focus_words = record_npc_exposure(
+            db,
+            user_id=session.user_id,
+            location=session.location,
+            npc_reply=result.npc_response,
+            focus_words=focus_words,
+        )
 
     if result.response_speaker == "npc":
         db.add(

@@ -184,6 +184,8 @@ Basitleştirilmiş Leitner sistemi: kutular 1, 2, 4, 8, 16, 32 gün. Başarı bi
 
 ### 4.5 NPC diyaloglarına enjeksiyon kuralları
 
+> **[Sürüm 4 uygulama notu]** İlk sürümde bağlam uygunluğu embedding yerine "kelime bu mekânda daha önce görüldüyse ×1,5" ile yaklaşık hesaplanır; vadesi geçmiş SRS çarpanı ve anlama kontrolü sorusu henüz yok. Kota, doğrulama ve `passive_encounter` kuralları aşağıdaki gibi uygulanmıştır. Akış: `docs/MIMARI.md` 6.1.2.
+
 - **Seçim:** Öncelik = S × (1 + 0,5 × vadesi\_geçmiş) × bağlam\_uygunluğu. Bağlam uygunluğu, kelimenin embedding'i ile NPC/mekan konu etiketlerinin kosinüs benzerliğidir (“abundant” fırında uygun, dedektif bürosunda daha az). Eşik 0,3 altıysa o kelime o NPC'ye verilmez.
 - **Kota:** Bir NPC konuşmasına en fazla 2 kırmızı kelime; aynı kelime günde en fazla 3 kez, 2 farklı NPC'den.
 - **Doğrulama:** LLM cevabında kelimenin (lemma eşleşmesiyle) gerçekten geçip geçmediği kontrol edilir; geçtiyse `passive_encounter` yazılır ve istemcide kelime hafifçe vurgulanır. Geçmediyse zorla eklenmez.
@@ -2129,7 +2131,8 @@ Konuşma akışı: oyuncu menzile girer → "E · X ile konuş" istemi (dokunara
 | 0 | `package-lock.json` güncellemesi (`npm install`), Docker ile uçtan uca deneme | Yapılacak |
 | 1 | Kelime nesneleri (35, 25.6) | Yapıldı (12 Ekim 2026) |
 | 1 | Spell Book MVP: `word_events` tablosu, 4.2 formülü ve 4.3 eşikleri (`mastered` hariç), `GET /api/spellbook/{user_id}`, kasabada Büyü Kitabı çekmecesi | Yapıldı (12 Ekim 2026) |
-| 1 | Spell Book: kırmızı kelime enjeksiyonu (4.5), SRS (4.4), `mastered` | Yapılacak |
+| 1 | Kırmızı kelime enjeksiyonu MVP (4.5): seçim, kota, doğrulama, `passive_encounter`, panelde vurgu | Yapıldı (12 Ekim 2026) |
+| 1 | Spell Book: anlama kontrolü, embedding ile bağlam uygunluğu, SRS (4.4), `mastered` | Yapılacak |
 | 1 | Harita JSON'a taşınır (33.4), editör kararı | Yapılacak |
 | 1 | Mobil: Capacitor sarmalayıcı, dokunmatik zoom (iki parmak), performans ölçümü | Yapılacak |
 | 2 | Dublaj Stüdyosu ve Gelişim Defteri kasabaya taşınır, Phaser kaldırılır | Yapılacak |

@@ -665,7 +665,8 @@ export class TownGame {
       }
     }
     for (const [id, helper] of this.propHighlights) {
-      const focused = id === this.nearestProp?.id || id === this.pendingProp?.id;
+      const otherPanelOpen = this.activePanel !== null && this.activePanel !== this.vocabPanel;
+      const focused = !otherPanelOpen && (id === this.nearestProp?.id || id === this.pendingProp?.id);
       helper.visible = focused;
       if (focused) {
         (helper.material as THREE.LineBasicMaterial).color.setHex(this.completedProps.has(id) ? HIGHLIGHT_DONE : HIGHLIGHT);

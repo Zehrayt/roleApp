@@ -149,7 +149,13 @@ export class DialoguePanel {
 
   private renderResult(result: TurnResponse): void {
     const coach = result.response_speaker === "coach";
-    this.append(coach ? "KOÇ" : this.npc.name.toUpperCase(), result.npc_response, coach ? "feedback" : "npc");
+    this.append(
+      coach ? "KOÇ" : this.npc.name.toUpperCase(),
+      result.npc_response,
+      coach ? "feedback" : "npc",
+      true,
+      result.used_focus_words ?? [],
+    );
     if (!result.accepted && result.correction && result.correction !== result.npc_response) {
       this.append("ÖNERİ", result.correction, "feedback");
     }
@@ -257,14 +263,20 @@ export class DialoguePanel {
     for (const m of remembered) this.append(m.author, m.text, m.kind as MessageKind, false);
   }
 
-  private append(author: string, text: string, kind: MessageKind, remember = true): void {
+  private append(
+    author: string,
+    text: string,
+    kind: MessageKind,
+    remember = true,
+    focusWords: readonly string[] = [],
+  ): void {
     this.messages.querySelector(".town-dialogue__empty")?.remove();
     const row = document.createElement("div");
     row.className = `town-dialogue__msg is-${kind}`;
     const who = document.createElement("strong");
     who.textContent = author;
     const body = document.createElement("span");
-    body.textContent = text;
+    fillWithFocusWords(body, text, focusWords);
     row.append(who, body);
     this.messages.append(row);
     this.messages.scrollTop = this.messages.scrollHeight;
@@ -276,4 +288,30 @@ export class DialoguePanel {
     this.send.disabled = busy;
     this.send.textContent = busy ? "…" : "Gönder";
   }
+}
+
+/**
+ * Writes `text` into `el`, wrapping Spell Book words the NPC used in <mark>
+ * (same whole-word + simple inflection rule as api/services/spell_book.py).
+ */
+function fillWithFocusWords(el: HTMLElement, text: string, words: readonly string[]): void {
+  const clean = words.map((w) => w.trim()).filter(Boolean);
+  if (clean.length === 0) {
+    el.textContent = text;
+    return;
+  }
+  const escaped = clean.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const pattern = new RegExp(`\\b(?:${escaped.join("|")})(?:s|es|ed|d|ing)?\\b`, "gi");
+  let last = 0;
+  for (const match of text.matchAll(pattern)) {
+    const start = match.index ?? 0;
+    if (start > last) el.append(text.slice(last, start));
+    const mark = document.createElement("mark");
+    mark.className = "town-focus";
+    mark.title = "Büyü Kitabı'ndaki kelimen";
+    mark.textContent = match[0];
+    el.append(mark);
+    last = start + match[0].length;
+  }
+  if (last < text.length) el.append(text.slice(last));
 }
