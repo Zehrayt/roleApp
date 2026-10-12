@@ -1974,9 +1974,9 @@ Bu bölüm, istemcinin izometrik 2D (Phaser + sprite) yerine **blok (voxel) taba
 | Sayfa | İçerik | Giriş noktası |
 | --- | --- | --- |
 | `game/index.html` | Blok kasaba (hub). Varsayılan açılış sayfası | `src/town/main.ts` |
-| `game/studio.html` | Henüz taşınmamış Phaser modları: menü, dublaj stüdyosu, gelişim defteri, eski fırın/kütüphane odaları | `src/main.ts` (`?scene=<SahneAdı>` ile doğrudan açılır) |
+| `game/studio.html` | Henüz taşınmamış Phaser modları: menü, gelişim defteri, eski fırın/kütüphane odaları. (Dublaj stüdyosu 12 Ekim 2026'da kasabaya taşındı.) | `src/main.ts` (`?scene=<SahneAdı>` ile doğrudan açılır) |
 
-Kasabadaki **portallar** (ör. Dublaj Stüdyosu binası) ve HUD bağlantıları studio.html'e yönlendirir. Stüdyodaki "Kasabaya dön" bağlantısı geri getirir. Vite iki sayfayı da derler (`vite.config.ts` → `build.rollupOptions.input`).
+Kasabadaki **portallar** ve HUD bağlantıları studio.html'e yönlendirir; bina içi **etkinlikler** (bugün: Dublaj Stüdyosu) kasabadan çıkmadan tam ekran açılır. Stüdyodaki "Kasabaya dön" bağlantısı geri getirir. Vite iki sayfayı da derler (`vite.config.ts` → `build.rollupOptions.input`).
 
 ### 32.2 Modül haritası (`game/src/town/`)
 
@@ -2135,7 +2135,8 @@ Konuşma akışı: oyuncu menzile girer → "E · X ile konuş" istemi (dokunara
 | 1 | Spell Book: anlama kontrolü, embedding ile bağlam uygunluğu, SRS (4.4), `mastered` | Yapılacak |
 | 1 | Harita JSON'a taşınır (33.4), editör kararı | Yapılacak |
 | 1 | Mobil: Capacitor sarmalayıcı, dokunmatik zoom (iki parmak), performans ölçümü | Yapılacak |
-| 2 | Dublaj Stüdyosu ve Gelişim Defteri kasabaya taşınır, Phaser kaldırılır | Yapılacak |
+| 2 | Dublaj Stüdyosu kasabaya taşınır | Yapıldı (12 Ekim 2026): stüdyo binasında tam ekran katman (`src/dub/`) |
+| 2 | Gelişim Defteri kasabaya taşınır, Phaser kaldırılır | Yapılacak |
 | 2 | NPC duygu yüzleri, gün döngüsü (3.1), NPC'lerin saatlere göre yer değiştirmesi | Yapılacak |
 | 3 | Agentic NPC'ler (Bölüm 7, 28): NPC'lerin LLM kararıyla yürümesi ve birbirleriyle konuşması | Yapılacak |
 

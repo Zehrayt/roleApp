@@ -111,7 +111,9 @@ export class MenuScene extends Phaser.Scene {
       const playBtn = target.closest('[data-action="play"]') as HTMLElement | null;
       if (playBtn) {
         const targetScene = playBtn.dataset["target"];
-        if (targetScene) this.scene.start(targetScene);
+        // The dub studio now lives in the block town (index.html).
+        if (targetScene === "DubScene") window.location.href = "./?open=dub";
+        else if (targetScene) this.scene.start(targetScene);
         return;
       }
 

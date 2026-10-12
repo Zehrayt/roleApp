@@ -6,9 +6,12 @@ The Praglish game client has two pages:
   town with an isometric camera and talks to AI NPCs (Maya at the bakery, Lina
   at the library, Leo at the cafe) through the Praglish API. Code lives in
   `src/town/`. Architecture and roadmap: `../docs/MIMARI.md`.
-- `studio.html` - the older Phaser modes (dub studio, progress book, menu),
-  reachable from portals in the town. Open a mode directly with
-  `studio.html?scene=DubScene`.
+- `studio.html` - the older Phaser modes (progress book, menu, old rooms),
+  reachable from the town's top-right links. Open a mode directly with
+  `studio.html?scene=DashboardScene`.
+
+The dub studio ("Listen & Repeat") lives in the town: walk into the Dublaj
+Stüdyosu building and press `E`, or open `index.html?open=dub`. Code: `src/dub/`.
 
 After pulling, run `npm install` once: the town adds the `three` dependency.
 

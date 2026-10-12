@@ -1,13 +1,13 @@
 import Phaser from "phaser";
 import { RoomScene } from "./scenes/RoomScene";
 import { LibraryScene } from "./scenes/LibraryScene";
-import { DubScene } from "./scenes/DubScene";
 import { DashboardScene } from "./scenes/DashboardScene";
 import { MenuScene } from "./scenes/MenuScene";
 
 // studio.html hosts the Phaser modes. The town (index.html) deep-links into a mode
 // with ?scene=<SceneKey>; the requested scene is listed first so Phaser boots it.
-const SCENES = { MenuScene, LibraryScene, RoomScene, DubScene, DashboardScene } as const;
+// The dub studio moved to the block town (src/dub/DubStudio.ts, index.html?open=dub).
+const SCENES = { MenuScene, LibraryScene, RoomScene, DashboardScene } as const;
 type SceneKey = keyof typeof SCENES;
 const requested = new URLSearchParams(window.location.search).get("scene");
 const startKey: SceneKey = requested && requested in SCENES ? (requested as SceneKey) : "MenuScene";

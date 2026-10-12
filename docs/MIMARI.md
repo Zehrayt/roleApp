@@ -47,6 +47,7 @@ Praglish, İngilizce öğrenmeyi bir kasabada yaşamaya dönüştüren bir oyund
 | ✓ | Kafe için sahte AI cevabı (`USE_MOCK_AI=true` iken Leo da cevap verir) | 12.10.2026 | `api/services/ai_client.py` |
 | ✓ | Spell Book (MVP): ham kelime olayları (`word_events`), roleApp 4.2 formülüyle zorlanma puanı ve durum, `GET /api/spellbook/{user_id}`, kasabada "Büyü Kitabı" çekmecesi (`B`), süzgeçler | 12.10.2026 | `api/services/spell_book.py`, `word_events.py`, `routes/spellbook.py`, `SpellBookPanel.ts` |
 | ✓ | Kırmızı kelime enjeksiyonu (MVP): API her turda en fazla 2 kırmızı/sarı kelime seçer (günlük kota: kelime başı 3 kez, en fazla 2 mekân), AI servisi NPC'ye "uyuyorsa kullan" der, kullanılan kelime `passive_encounter` olarak yazılır ve panelde vurgulanır | 12.10.2026 | `spell_book.py` (`select_focus_words`, `find_used_words`), `word_events.py`, `routes/turn.py`, `ai/modules/npc.py`, `DialoguePanel.ts` |
+| ✓ | Dublaj Stüdyosu kasabaya taşındı: binaya girip `E` → aynı ekranlar tam ekran katmanda açılır (Phaser'sız). Phaser menüsündeki kart `index.html?open=dub`'a yönlendirir. İlerleme (localStorage) korunur | 12.10.2026 | `src/dub/DubStudio.ts`, `src/dub/dub.css`, `townMap.ts` (`activity`), `TownGame.ts` |
 | ✓ | Sahte API (`npm run dev:mock-api`): gerçek kelime listeleri, ilerleme ve Spell Book uçları | 12.10.2026 | `game/scripts/mock-api.mjs` |
 | ✓ | Kesit yüksekliği 3'e indirildi (duvar dibindeki eşyalar görünür); kapalı panelin klavyeyi yutması düzeltildi | 12.10.2026 | `townMap.ts`, `*Panel.ts`, `town.css` |
 | ✓ | roleApp belgesi Sürüm 4'e güncellendi | 12.10.2026 | `docs/roleApp.md` |
@@ -63,7 +64,6 @@ Praglish, İngilizce öğrenmeyi bir kasabada yaşamaya dönüştüren bir oyund
 | ☐ | Backend testlerini Docker'da çalıştır: `docker compose run --rm api python -m unittest discover tests` | 0 | Spell Book formül testleri bu ortamda geçti; veritabanı katmanı henüz çalıştırılmadı |
 | ☐ | Harita JSON'a taşınır, editör kararı (MagicaVoxel içe aktarma mı, oyun içi editör mü) | 1 | roleApp 33.4 |
 | ☐ | Mobil: Capacitor, iki parmakla zoom, orta segment telefonda FPS ölçümü | 1 | roleApp 33.7, 36 |
-| ☐ | Dublaj Stüdyosu kasabaya taşınır | 2 | Sonra `DubScene` silinir |
 | ☐ | Gelişim Defteri kasabaya taşınır | 2 | Sonra `DashboardScene` silinir |
 | ☐ | Phaser ve eski izometrik kodun kaldırılması (`IsometricMath`, `DepthSort`, `IsoAvatar`, Tiled haritaları, `RoomScene`, `LibraryScene`, `MenuScene`) | 2 | Son mod taşınınca |
 | ☐ | NPC duygu yüzleri (5 kademe), gün döngüsü, NPC'lerin saatlere göre yer değiştirmesi | 2 | roleApp 3.1, 5.5 |
@@ -109,6 +109,7 @@ Kural: istemci oyun kararı vermez (değerlendirme, ödül, senaryo durumu backe
 | `SpellBookPanel.ts` | Büyü Kitabı çekmecesi (`/api/spellbook/*`) | Hayır (DOM) | Tarayıcıda denendi |
 | `TownGame.ts` | Her şeyi birleştiren oyun döngüsü | Evet | Hayır |
 | `main.ts`, `town.css` | Giriş noktası ve HUD stilleri | — | — |
+| `../dub/DubStudio.ts`, `dub.css` | Dublaj Stüdyosu (eski `DubScene`), tam ekran katman; `/api/dub/*`, `/api/speech/tts` | Hayır (DOM) | Tarayıcıda denendi |
 
 Paylaşılan: `engine/PathFinder.ts` (A*), `services/PraglishApiClient.ts` (API istemcisi), `services/RoleplayMemory.ts` (mekân başına konuşma geçmişi).
 
@@ -215,7 +216,7 @@ Bir NPC'nin çalışması için dört yerin uyuşması gerekir: `townMap.ts` kay
 
 ### 6.4 Sayfalar arası bağlantı
 
-`studio.html?scene=<DubScene|DashboardScene|MenuScene|LibraryScene|RoomScene>` istenen Phaser sahnesini açar. Kasabadaki portallar `townMap.ts` içinde `portal.href` ile tanımlanır.
+`studio.html?scene=<DashboardScene|MenuScene|LibraryScene|RoomScene>` istenen Phaser sahnesini açar. Kasabadaki portallar `townMap.ts` içinde `portal.href` ile, bina içi tam ekran etkinlikler `activity` ile tanımlanır (bugün: `dub`). `index.html?open=dub` dublaj stüdyosunu doğrudan açar.
 
 ---
 

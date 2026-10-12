@@ -75,6 +75,13 @@ export interface Portal {
   href: string;
 }
 
+/** A full-screen activity hosted by a building (e.g. the dub studio). */
+export interface Activity {
+  id: "dub";
+  /** Text on the interaction prompt. */
+  label: string;
+}
+
 export interface BuildingSpec {
   id: string;
   name: string;
@@ -87,6 +94,7 @@ export interface BuildingSpec {
   /** Blocks at or above this y belong to the building's "upper" mesh, hidden while the player is inside. */
   cutY: number;
   portal?: Portal;
+  activity?: Activity;
 }
 
 export interface TownDefinition {
@@ -117,6 +125,7 @@ interface BuildingPlan {
   door: Cell;
   windows: Cell[];
   portal?: Portal;
+  activity?: Activity;
 }
 
 function placeBuilding(world: VoxelWorld, plan: BuildingPlan): BuildingSpec {
@@ -158,6 +167,7 @@ function placeBuilding(world: VoxelWorld, plan: BuildingPlan): BuildingSpec {
     cutY: 3,
   };
   if (plan.portal) spec.portal = plan.portal;
+  if (plan.activity) spec.activity = plan.activity;
   return spec;
 }
 
@@ -253,14 +263,14 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.set(5, 2, 31, Block.PLANKS);
   world.fill(8, GROUND_Y, 21, 8, GROUND_Y, 25, Block.COBBLE);
 
-  // Dublaj Stüdyosu — existing Phaser "Listen & Repeat" mode, reached through a portal.
+  // Dublaj Stüdyosu — "Listen & Repeat" (dub the scene), opened in place as an overlay.
   buildings.push(placeBuilding(world, {
     id: "studio", name: "Dublaj Stüdyosu", nameEn: "Dub Studio",
     x0: 27, z0: 26, w: 8, d: 7,
     wall: Block.BRICK, roof: Block.DARK, floor: Block.DARK,
     door: { x: 30, z: 26 },
     windows: [{ x: 28, z: 26 }, { x: 32, z: 26 }, { x: 33, z: 26 }],
-    portal: { label: "Dublaj Stüdyosu'na gir", href: "studio.html?scene=DubScene" },
+    activity: { id: "dub", label: "Dublaj Stüdyosu'na gir" },
   }));
   world.fill(28, 2, 31, 33, 2, 31, Block.DARK);
   world.fill(30, GROUND_Y, 21, 30, GROUND_Y, 25, Block.COBBLE);

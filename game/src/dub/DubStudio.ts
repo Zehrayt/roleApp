@@ -1,5 +1,18 @@
-import Phaser from "phaser";
-import { DubApiClient, DubApiError, DubScript, DubScriptLine, WordVerdict } from "../services/DubApiClient";
+import {
+  DubApiClient,
+  DubApiError,
+  type DubScript,
+  type DubScriptLine,
+  type WordVerdict,
+} from "../services/DubApiClient";
+import "./dub.css";
+
+/*
+ * Dub the Scene ("Listen & Repeat"), moved out of Phaser (formerly
+ * scenes/DubScene.ts). The screens are the same DOM as before; they are now
+ * mounted in a full-screen overlay that the block town opens from the
+ * Dublaj Stüdyosu building. Progress keys in localStorage are unchanged.
+ */
 
 
 type Screen = "start" | "your-turn" | "other-turn" | "finished" | "journal";
@@ -51,10 +64,23 @@ function bannerText(text: string): string {
   return text.toUpperCase();
 }
 
-export class DubScene extends Phaser.Scene {
-  private readonly api = new DubApiClient();
+/** Logical stage size the screens were designed for; scaled to fit the window. */
+const STAGE_WIDTH = 1280;
+const STAGE_HEIGHT = 720;
 
-  private panel: Phaser.GameObjects.DOMElement | null = null;
+export interface DubStudioEvents {
+  /** The player left the studio (BACK on the scene list). */
+  onExit(): void;
+}
+
+export class DubStudio {
+  private readonly api = new DubApiClient();
+  private readonly overlay: HTMLElement;
+  private readonly stage: HTMLElement;
+  private readonly onResize = (): void => this.fitStage();
+  private scriptsLoaded = false;
+
+  private panel: HTMLElement | null = null;
   private statusEl: HTMLElement | null = null;
   private screen: Screen = "start";
 
@@ -83,21 +109,51 @@ export class DubScene extends Phaser.Scene {
   private turnContinueBtn: HTMLButtonElement | null = null;
   private pendingContinueAction: (() => void) | null = null;
 
-  constructor() {
-    super("DubScene");
+  constructor(container: HTMLElement, private readonly events: DubStudioEvents) {
+    this.overlay = document.createElement("div");
+    this.overlay.className = "dub-overlay";
+    this.overlay.hidden = true;
+    this.overlay.setAttribute("role", "dialog");
+    this.overlay.setAttribute("aria-label", "Dublaj Stüdyosu");
+    this.stage = document.createElement("div");
+    this.stage.className = "dub-stage";
+    this.overlay.append(this.stage);
+    container.append(this.overlay);
+    // Keep keys typed inside the studio away from the town's controls.
+    this.overlay.addEventListener("keydown", (event) => event.stopPropagation());
   }
 
-  public create(): void {
+  public get isOpen(): boolean {
+    return !this.overlay.hidden;
+  }
+
+  public open(): void {
+    this.overlay.hidden = false;
+    this.fitStage();
+    window.addEventListener("resize", this.onResize);
+    this.playbackAbort = false;
+    this.resetState();
     this.screen = "start";
     this.renderStart();
-    void this.loadScripts();
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
+    if (!this.scriptsLoaded) void this.loadScripts();
+  }
+
+  /** Leaves the studio from any screen (used by the town, e.g. on Escape). */
+  public close(): void {
+    if (!this.isOpen) return;
+    this.exitToMenu();
+  }
+
+  private fitStage(): void {
+    const scale = Math.min(window.innerWidth / STAGE_WIDTH, window.innerHeight / STAGE_HEIGHT);
+    this.stage.style.setProperty("--dub-scale", String(scale));
   }
 
   private async loadScripts(): Promise<void> {
     try {
       const scripts = await this.api.listScripts();
       this.availableScripts = [...scripts].sort((a, b) => a.level - b.level);
+      this.scriptsLoaded = true;
       if (this.screen !== "start") return; // the user may have already left this screen
       this.renderLevelMap();
     } catch {
@@ -116,7 +172,7 @@ export class DubScene extends Phaser.Scene {
 
   private loadCompletionStore(): Record<string, Record<string, number>> {
     try {
-      const raw = window.localStorage.getItem(DubScene.COMPLETION_KEY);
+      const raw = window.localStorage.getItem(DubStudio.COMPLETION_KEY);
       return raw ? (JSON.parse(raw) as Record<string, Record<string, number>>) : {};
     } catch {
       return {};
@@ -125,7 +181,7 @@ export class DubScene extends Phaser.Scene {
 
   private saveCompletionStore(store: Record<string, Record<string, number>>): void {
     try {
-      window.localStorage.setItem(DubScene.COMPLETION_KEY, JSON.stringify(store));
+      window.localStorage.setItem(DubStudio.COMPLETION_KEY, JSON.stringify(store));
     } catch {
     }
   }
@@ -148,7 +204,7 @@ export class DubScene extends Phaser.Scene {
 
   private getLastCharacter(scriptId: string, fallback: string): string {
     try {
-      const raw = window.localStorage.getItem(DubScene.LAST_CHARACTER_KEY);
+      const raw = window.localStorage.getItem(DubStudio.LAST_CHARACTER_KEY);
       const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
       return map[scriptId] ?? fallback;
     } catch {
@@ -158,10 +214,10 @@ export class DubScene extends Phaser.Scene {
 
   private recordLastCharacter(scriptId: string, character: string): void {
     try {
-      const raw = window.localStorage.getItem(DubScene.LAST_CHARACTER_KEY);
+      const raw = window.localStorage.getItem(DubStudio.LAST_CHARACTER_KEY);
       const map = raw ? (JSON.parse(raw) as Record<string, string>) : {};
       map[scriptId] = character;
-      window.localStorage.setItem(DubScene.LAST_CHARACTER_KEY, JSON.stringify(map));
+      window.localStorage.setItem(DubStudio.LAST_CHARACTER_KEY, JSON.stringify(map));
     } catch {
     }
   }
@@ -229,8 +285,11 @@ export class DubScene extends Phaser.Scene {
       document.removeEventListener("click", this.helpOutsideClickHandler);
       this.helpOutsideClickHandler = null;
     }
-    this.panel?.destroy();
+    this.panel?.remove();
     this.panel = null;
+    this.mediaStream = null;
+    this.overlay.hidden = true;
+    window.removeEventListener("resize", this.onResize);
   }
 
   private exitToLevelSelect(): void {
@@ -248,7 +307,8 @@ export class DubScene extends Phaser.Scene {
 
   private exitToMenu(): void {
     this.teardown();
-    this.scene.start("MenuScene");
+    this.resetState();
+    this.events.onExit();
   }
 
   private setStatus(text: string, isError = false): void {
@@ -258,10 +318,13 @@ export class DubScene extends Phaser.Scene {
   }
 
   private mount(html: string, onExit: () => void = () => this.exitToMenu()): HTMLElement {
-    this.panel?.destroy();
-    const dom = this.add.dom(640, 360).createFromHTML(html);
-    this.panel = dom;
-    const node = dom.node as HTMLElement;
+    this.panel?.remove();
+    // A wrapper like Phaser's DOMElement, so lookups by class also find the root panel.
+    const node = document.createElement("div");
+    node.className = "dub-mount";
+    node.innerHTML = html;
+    this.stage.append(node);
+    this.panel = node;
     const backdrop = node.querySelector(".dub-panel--levels")
       ? "levels"
       : node.querySelector(".dub-panel--studio")
@@ -275,9 +338,8 @@ export class DubScene extends Phaser.Scene {
   }
 
   private setScreenBackdrop(backdrop: "levels" | "studio" | null): void {
-    document.body.classList.toggle("dub-levels-backdrop", backdrop === "levels");
-    document.body.classList.toggle("dub-studio-backdrop", backdrop === "studio");
-    this.cameras.main.setBackgroundColor(backdrop ? "rgba(0, 0, 0, 0)" : "#15111f");
+    this.overlay.classList.toggle("is-levels", backdrop === "levels");
+    this.overlay.classList.toggle("is-studio", backdrop === "studio");
   }
 
   private setupVideoElement(node: HTMLElement, dataRole: string): void {

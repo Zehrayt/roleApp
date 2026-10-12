@@ -3,6 +3,7 @@ import { findPath, type GridCell, type PathfindingGrid } from "../engine/PathFin
 import { PraglishApiClient } from "../services/PraglishApiClient";
 import { BlockCharacter } from "./BlockCharacter";
 import { CameraRig, type CameraMode } from "./CameraRig";
+import { DubStudio } from "../dub/DubStudio";
 import { DialoguePanel } from "./DialoguePanel";
 import { buildMeshData, type MeshData } from "./mesher";
 import { paintBlockAtlas } from "./textures";
@@ -46,6 +47,7 @@ interface LabelRuntime {
 
 type Interaction =
   | { kind: "npc"; npc: NpcRuntime }
+  | { kind: "activity"; building: BuildingSpec }
   | { kind: "portal"; building: BuildingSpec };
 
 /**
@@ -74,6 +76,7 @@ export class TownGame {
   private readonly vocabPrompt: HTMLButtonElement;
   private readonly vocabPanel: VocabPanel;
   private readonly spellBook: SpellBookPanel;
+  private readonly dubStudio: DubStudio;
   private readonly apis = new Map<string, PraglishApiClient>();
   private readonly propHighlights = new Map<string, THREE.Box3Helper>();
   private readonly completedProps = new Set<string>();
@@ -171,12 +174,20 @@ export class TownGame {
       onClose: () => this.panelClosed(this.vocabPanel),
     });
     this.spellBook = new SpellBookPanel(host, { onClose: () => this.panelClosed(this.spellBook) });
+    this.dubStudio = new DubStudio(host, {
+      onExit: () => {
+        this.host.classList.remove("is-talking");
+        this.renderer.domElement.focus?.();
+      },
+    });
     for (const prop of this.town.props) this.propHighlights.set(prop.id, this.createHighlight(prop));
     this.stats = this.mustQuery<HTMLElement>("[data-town-stats]");
 
     this.bindInput();
     window.addEventListener("resize", () => this.resize());
     this.resize();
+    // Deep link from the Phaser menu: index.html?open=dub
+    if (new URLSearchParams(window.location.search).get("open") === "dub") this.openActivity("dub");
     requestAnimationFrame((t) => this.tick(t));
   }
 
@@ -331,6 +342,10 @@ export class TownGame {
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, textarea, select")) return;
       const k = e.key.toLowerCase();
+      if (this.dubStudio.isOpen) {
+        if (k === "escape") this.dubStudio.close();
+        return;
+      }
       if (k === "escape") this.activePanel?.close();
       else if (k === "e" || k === "enter") this.interact();
       else if (k === "f" && this.nearestProp) this.openVocab(this.nearestProp);
@@ -505,6 +520,15 @@ export class TownGame {
     return api;
   }
 
+  private openActivity(id: "dub"): void {
+    if (id !== "dub") return;
+    this.activePanel?.close();
+    this.keys.clear();
+    this.path = [];
+    this.host.classList.add("is-talking");
+    this.dubStudio.open();
+  }
+
   private openSpellBook(): void {
     const first = this.town.npcs[0];
     const api = first ? this.apiFor(first.location) : null;
@@ -551,6 +575,7 @@ export class TownGame {
     const it = this.interaction;
     if (!it) return;
     if (it.kind === "npc") this.openDialogue(it.npc);
+    else if (it.kind === "activity" && it.building.activity) this.openActivity(it.building.activity.id);
     else if (it.building.portal) window.location.href = it.building.portal.href;
   }
 
@@ -584,6 +609,11 @@ export class TownGame {
   private tick(now: number): void {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
+    if (this.dubStudio.isOpen) {
+      // The studio covers the whole screen; skip the 3D work until it closes.
+      requestAnimationFrame((t) => this.tick(t));
+      return;
+    }
 
     this.updatePlayer(dt, now);
     this.updateWorld();
@@ -647,6 +677,7 @@ export class TownGame {
       if (d <= TALK_RANGE && (!nearest || d < this.distanceTo(nearest))) nearest = npc;
     }
     if (nearest) this.interaction = { kind: "npc", npc: nearest };
+    else if (inside?.activity) this.interaction = { kind: "activity", building: inside };
     else if (inside?.portal) this.interaction = { kind: "portal", building: inside };
     else this.interaction = null;
 
@@ -686,7 +717,7 @@ export class TownGame {
     if (it && showPrompt) {
       this.prompt.textContent = it.kind === "npc"
         ? `E · ${it.npc.spec.name} ile konuş`
-        : `E · ${it.building.portal?.label ?? "Gir"}`;
+        : `E · ${it.building.activity?.label ?? it.building.portal?.label ?? "Gir"}`;
     }
   }
 

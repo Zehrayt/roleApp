@@ -105,6 +105,12 @@ describe("town map", () => {
     }
   });
 
+  it("hosts the dub studio in the studio building instead of a portal", () => {
+    const studio = town.buildings.find((b) => b.id === "studio");
+    expect(studio?.activity?.id).toBe("dub");
+    expect(studio?.portal).toBe(undefined);
+  });
+
   it("uses only backend scenarios that exist", () => {
     expect(town.npcs.map((n) => `${n.location}/${n.npcRole}`).sort()).toEqual([
       "bakery/baker",
