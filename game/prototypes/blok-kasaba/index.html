@@ -1,0 +1,698 @@
+<title>Praglish Blok Kasaba</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: full-bleed 3D block town; compact HUD pinned to the corners, controls docked at the bottom */
+:root {
+  --sky-top: #8ec5ec;
+  --sky-low: #dcefF6;
+  --panel: rgba(24, 30, 44, 0.88);
+  --panel-line: rgba(255, 255, 255, 0.12);
+  --panel-fg: #f4efe3;
+  --panel-muted: #b4bccb;
+  --accent: #f2b134;
+  --accent-ink: #2a1d05;
+  --bubble: #fffdf6;
+  --bubble-ink: #1f2430;
+  --font-display: "Pixelify Sans", "Courier New", monospace;
+  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-low));
+  color: var(--panel-fg);
+  font-family: var(--font-body);
+  overflow: hidden;
+}
+#app { position: relative; width: 100%; height: 100%; overflow: hidden; }
+#app canvas { display: block; touch-action: none; cursor: pointer; }
+
+.hud { position: absolute; z-index: 5; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 6px;
+  box-shadow: 0 6px 24px rgba(10, 20, 40, 0.25);
+}
+
+#info { top: 16px; left: 16px; max-width: 330px; padding: 14px 16px; }
+#info summary {
+  list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: 10px;
+}
+#info summary::-webkit-details-marker { display: none; }
+.eyebrow {
+  font-family: var(--font-display); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 2px;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 700; font-size: 26px; line-height: 1.05;
+  margin: 0; text-wrap: balance;
+}
+.toggle-hint { margin-left: auto; font-size: 12px; color: var(--panel-muted); }
+#info p { font-size: 14px; line-height: 1.45; margin: 10px 0 0; color: var(--panel-fg); }
+#info ul { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+#info li { font-size: 13px; line-height: 1.4; color: var(--panel-muted); display: grid; grid-template-columns: 14px 1fr; gap: 8px; }
+#info li b { color: var(--panel-fg); font-weight: 700; }
+.pip { width: 10px; height: 10px; margin-top: 4px; background: var(--accent); image-rendering: pixelated; }
+
+#controls {
+  left: 50%; bottom: 16px; transform: translateX(-50%);
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; align-items: center; justify-content: center;
+  max-width: calc(100% - 32px);
+}
+button {
+  font-family: var(--font-display); font-size: 15px; font-weight: 500;
+  color: var(--panel-fg); background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--panel-line); border-radius: 4px;
+  min-width: 40px; height: 38px; padding: 0 12px; cursor: pointer;
+}
+button:hover { background: rgba(255, 255, 255, 0.14); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.sep { width: 1px; height: 24px; background: var(--panel-line); margin: 0 2px; }
+kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.7; margin-left: 4px; }
+
+#stats {
+  right: 16px; top: 16px; padding: 8px 10px; font-size: 12px; line-height: 1.5;
+  color: var(--panel-muted); font-variant-numeric: tabular-nums; text-align: right;
+}
+#stats b { color: var(--panel-fg); font-weight: 700; }
+
+.label, .bubble { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; will-change: transform; }
+.label {
+  font-family: var(--font-display); font-size: 13px; font-weight: 700; white-space: nowrap;
+  background: var(--panel); color: var(--panel-fg); padding: 3px 8px; border-radius: 3px;
+  border-bottom: 2px solid var(--accent);
+}
+.label span { color: var(--panel-muted); font-weight: 500; }
+.bubble {
+  max-width: 220px; background: var(--bubble); color: var(--bubble-ink);
+  font-size: 14px; line-height: 1.35; padding: 8px 10px; border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+.bubble strong { display: block; font-family: var(--font-display); font-size: 12px; color: #9a5b00; margin-bottom: 2px; }
+.bubble::after {
+  content: ""; position: absolute; left: 50%; bottom: -7px; margin-left: -7px;
+  border: 7px solid transparent; border-bottom: 0; border-top-color: var(--bubble);
+}
+
+@media (max-width: 640px) {
+  #info { right: 16px; max-width: none; padding: 10px 12px; }
+  h1 { font-size: 20px; }
+  #stats { top: auto; bottom: 120px; right: 16px; }
+  #controls { width: calc(100% - 32px); }
+  button { height: 36px; padding: 0 10px; }
+  kbd { display: none; }
+}
+</style>
+
+<div id="app">
+  <details id="info" class="hud panel" open>
+    <summary>
+      <div>
+        <p class="eyebrow">Praglish · roleApp prototipi</p>
+        <h1>Blok Kasaba</h1>
+      </div>
+      <span class="toggle-hint">bilgi</span>
+    </summary>
+    <p>Kasaba 1 m'lik bloklardan kurulu. Bütün dokular 16×16 piksel ve bu sayfada kodla üretiliyor; Minecraft dokusu yok. Zemine dokun, karakter yürür. Fırına gir: duvarlar kesilir, Maya seninle konuşur.</p>
+    <ul>
+      <li><i class="pip"></i><span><b>Derinlik GPU'da.</b> Belgedeki dilimleme ve ön köşe formülüne gerek kalmıyor.</span></li>
+      <li><i class="pip"></i><span><b>Karakterler kutulardan.</b> 8 yönlü sprite yerine tek model döner ve kodla yürür.</span></li>
+      <li><i class="pip"></i><span><b>İçeri girince kesit.</b> Binanın üst yarısı gizlenir, oda görünür.</span></li>
+    </ul>
+  </details>
+
+  <div id="stats" class="hud panel" aria-live="off"></div>
+
+  <div id="controls" class="hud panel" role="toolbar" aria-label="Kamera">
+    <button id="rotL" title="Sola döndür (Q)">↺<kbd>Q</kbd></button>
+    <button id="rotR" title="Sağa döndür (E)">↻<kbd>E</kbd></button>
+    <span class="sep"></span>
+    <button id="zoomOut" title="Uzaklaş">−</button>
+    <button id="zoomIn" title="Yakınlaş">+</button>
+    <span class="sep"></span>
+    <button id="modeIso" aria-pressed="true">İzometrik</button>
+    <button id="modePersp" aria-pressed="false">Perspektif</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  // ---------- seeded random ----------
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const rng = mulberry32(20261012);
+  const pick = (arr) => arr[Math.floor(rng() * arr.length)];
+
+  // ---------- texture atlas (4x4 tiles, 16px each, all original) ----------
+  const T = { grassTop: 0, grassSide: 1, dirt: 2, cobble: 3, planks: 4, logSide: 5, logTop: 6, brick: 7, glass: 8, leaves: 9, plaster: 10, roof: 11, awning: 12, shelf: 13, water: 14, dark: 15 };
+  const atlas = document.createElement('canvas');
+  atlas.width = 64; atlas.height = 64;
+  const actx = atlas.getContext('2d');
+  function paint(tile, fn) {
+    const ox = (tile % 4) * 16, oy = Math.floor(tile / 4) * 16;
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      const c = fn(x, y);
+      if (c) { actx.fillStyle = c; actx.fillRect(ox + x, oy + y, 1, 1); }
+    }
+  }
+  const GRASS = ['#5d9b3a', '#67a843', '#4f8a31', '#72b34b', '#5d9b3a'];
+  const DIRT = ['#7a5233', '#8a5f3c', '#6b4629', '#94693f'];
+  paint(T.grassTop, () => pick(GRASS));
+  paint(T.dirt, () => pick(DIRT));
+  const grassDepth = Array.from({ length: 16 }, () => 3 + (rng() < 0.5 ? 1 : 0) + (rng() < 0.3 ? 1 : 0));
+  paint(T.grassSide, (x, y) => (y < grassDepth[x] ? pick(GRASS) : pick(DIRT)));
+  paint(T.cobble, (x, y) => {
+    if (y === 0 || y === 5 || y === 10) return '#5b5b5e';
+    const seams = y < 5 ? [6, 13] : y < 10 ? [3, 10] : [7, 14];
+    if (seams.includes(x)) return '#5b5b5e';
+    if ((y === 1 || y === 6 || y === 11) && rng() < 0.5) return '#acacae';
+    return pick(['#8d8d90', '#7f7f82', '#97979a', '#868689']);
+  });
+  function planks(pal, line) {
+    return (x, y) => {
+      const board = Math.floor(y / 4);
+      if (y % 4 === 3) return line;
+      if (x === [3, 11, 7, 14][board]) return line;
+      return rng() < 0.12 ? pal[3] : pick(pal.slice(0, 3));
+    };
+  }
+  paint(T.planks, planks(['#b8874f', '#ae7f48', '#c29358', '#9c6e3d'], '#7d5a32'));
+  paint(T.dark, planks(['#64442a', '#6e4c2f', '#5b3d25', '#4c321e'], '#3a2716'));
+  const barkCol = Array.from({ length: 16 }, () => pick(['#6b4a2b', '#5a3d22', '#7a5531']));
+  paint(T.logSide, (x) => (rng() < 0.18 ? '#4a321c' : barkCol[x]));
+  paint(T.logTop, (x, y) => {
+    const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5));
+    if (d > 6.5) return '#5a3d22';
+    if (d < 1) return '#9a7044';
+    return Math.floor(d) % 2 ? '#c49a62' : '#b0844f';
+  });
+  paint(T.brick, (x, y) => {
+    if (y % 4 === 3) return '#cfc6b8';
+    const off = Math.floor(y / 4) % 2 ? 4 : 0;
+    if ((x + off) % 8 === 7) return '#cfc6b8';
+    return pick(['#a5482f', '#b5543a', '#9c442c', '#ad4e34']);
+  });
+  paint(T.glass, (x, y) => {
+    if (x === 0 || y === 0 || x === 15 || y === 15) return '#e4f2f7';
+    if ((x - y === 5 && x > 6 && x < 12) || (x - y === 7 && x > 9 && x < 13)) return 'rgba(255,255,255,0.95)';
+    return null;
+  });
+  paint(T.leaves, () => (rng() < 0.2 ? null : pick(['#3f7d2c', '#4a8f34', '#356b25', '#5aa040'])));
+  paint(T.plaster, () => (rng() < 0.75 ? '#ece3cf' : pick(['#e2d7bf', '#f3ebda'])));
+  paint(T.roof, (x, y) => {
+    const row = Math.floor(y / 4);
+    if (y % 4 === 3) return '#7c2f1f';
+    if ((x + (row % 2) * 3) % 6 === 5) return '#8e3826';
+    return pick(['#b6503a', '#c25d45', '#a8452f']);
+  });
+  paint(T.awning, (x, y) => {
+    const red = Math.floor(x / 4) % 2 === 0;
+    if (y >= 14) return red ? '#a8352b' : '#d6d0c4';
+    return red ? '#d0473a' : '#f4efe6';
+  });
+  const BOOKS = ['#8c2f39', '#2f5d8c', '#3d7a46', '#c49a2b', '#6b3d8c', '#2a6b6b', '#a3532a'];
+  const shelfRows = [];
+  for (const [y0, y1] of [[1, 6], [9, 14]]) {
+    let x = 1;
+    while (x < 15) {
+      const w = rng() < 0.5 ? 1 : 2, c = pick(BOOKS), top = y0 + Math.floor(rng() * 3);
+      for (let i = 0; i < w && x < 15; i++, x++) shelfRows.push({ x, y0, y1, top, c });
+    }
+  }
+  paint(T.shelf, (x, y) => {
+    if (y === 0 || y === 15 || y === 7 || y === 8) return y === 8 || y === 15 ? '#7d5a32' : '#b8874f';
+    if (x === 0 || x === 15) return '#7d5a32';
+    const b = shelfRows.find((s) => s.x === x && y >= s.y0 && y <= s.y1);
+    if (!b) return '#3a2716';
+    return y < b.top ? '#3a2716' : b.c;
+  });
+  paint(T.water, (x, y) => ((x + 2 * y) % 7 === 0 && rng() < 0.6 ? '#86b6f0' : pick(['#3b74c9', '#4682d6', '#3368b8'])));
+
+  const texture = new THREE.CanvasTexture(atlas);
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+
+  // ---------- blocks ----------
+  const B = { AIR: 0, GRASS: 1, DIRT: 2, COBBLE: 3, PLANKS: 4, LOG: 5, BRICK: 6, GLASS: 7, LEAVES: 8, PLASTER: 9, ROOF: 10, AWNING: 11, SHELF: 12, WATER: 13, DARK: 14 };
+  const BLOCKS = [];
+  const def = (id, top, side, bottom, clear = false) => { BLOCKS[id] = { top, side: side ?? top, bottom: bottom ?? top, clear }; };
+  def(B.GRASS, T.grassTop, T.grassSide, T.dirt);
+  def(B.DIRT, T.dirt); def(B.COBBLE, T.cobble); def(B.PLANKS, T.planks);
+  def(B.LOG, T.logTop, T.logSide, T.logTop); def(B.BRICK, T.brick);
+  def(B.GLASS, T.glass, T.glass, T.glass, true); def(B.LEAVES, T.leaves, T.leaves, T.leaves, true);
+  def(B.PLASTER, T.plaster); def(B.ROOF, T.roof); def(B.AWNING, T.awning);
+  def(B.SHELF, T.planks, T.shelf, T.planks); def(B.WATER, T.water); def(B.DARK, T.dark);
+
+  // ---------- world ----------
+  const W = 40, D = 40, H = 16;
+  const world = new Uint8Array(W * H * D);
+  const inside = (x, y, z) => x >= 0 && y >= 0 && z >= 0 && x < W && y < H && z < D;
+  const get = (x, y, z) => (inside(x, y, z) ? world[(y * D + z) * W + x] : 0);
+  const set = (x, y, z, v) => { if (inside(x, y, z)) world[(y * D + z) * W + x] = v; };
+  const fill = (x0, y0, z0, x1, y1, z1, v) => { for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) set(x, y, z, v); };
+
+  fill(0, 0, 0, W - 1, 0, D - 1, B.DIRT);
+  fill(0, 1, 0, W - 1, 1, D - 1, B.GRASS);
+  fill(0, 1, 19, W - 1, 1, 20, B.COBBLE);
+  fill(19, 1, 3, 20, 1, D - 1, B.COBBLE);
+  fill(16, 1, 16, 23, 1, 23, B.COBBLE);
+  fill(17, 2, 17, 22, 2, 22, B.BRICK);
+  fill(18, 2, 18, 21, 2, 21, B.AIR);
+  fill(18, 1, 18, 21, 1, 21, B.WATER);
+
+  const buildings = [];
+  function building(o) {
+    const { x0, z0, w, d, wall, roof, floor } = o;
+    const x1 = x0 + w - 1, z1 = z0 + d - 1;
+    fill(x0, 1, z0, x1, 1, z1, floor);
+    for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      const ex = x === x0 || x === x1, ez = z === z0 || z === z1;
+      if (ex || ez) fill(x, 2, z, x, 5, z, ex && ez ? B.LOG : wall);
+    }
+    for (const [x, z] of o.windows) { set(x, 3, z, B.GLASS); set(x, 4, z, B.GLASS); }
+    set(o.door[0], 2, o.door[1], B.AIR); set(o.door[0], 3, o.door[1], B.AIR);
+    for (let k = 0, y = 6; ; k++, y++) {
+      const ax = x0 - 1 + k, bx = x1 + 1 - k, az = z0 - 1 + k, bz = z1 + 1 - k;
+      if (ax > bx || az > bz) break;
+      fill(ax, y, az, bx, y, bz, roof);
+    }
+    buildings.push({ ...o, x1, z1, cutY: 4 });
+  }
+  const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+
+  // Bakery (Fırın) — Negotiation Table
+  building({ name: 'Fırın', en: 'Bakery', x0: 4, z0: 4, w: 10, d: 8, wall: B.PLASTER, roof: B.ROOF, floor: B.PLANKS,
+    door: [8, 11], windows: [[5, 11], [6, 11], [11, 11], [12, 11], [13, 6], [13, 7], [13, 9]] });
+  fill(5, 5, 12, 12, 5, 12, B.AWNING);
+  fill(6, 2, 7, 11, 2, 7, B.DARK);
+  fill(11, 2, 5, 12, 3, 5, B.BRICK);
+  fill(5, 2, 5, 6, 2, 5, B.PLANKS);
+  fill(8, 1, 12, 8, 1, 18, B.COBBLE);
+
+  // Library (Kütüphane) — Smart Reading Scrolls
+  building({ name: 'Kütüphane', en: 'Library', x0: 26, z0: 4, w: 10, d: 8, wall: B.BRICK, roof: B.DARK, floor: B.PLANKS,
+    door: [30, 11], windows: [[27, 11], [28, 11], [33, 11], [34, 11], [26, 7], [26, 8]] });
+  fill(27, 2, 5, 34, 4, 5, B.SHELF);
+  fill(28, 2, 8, 29, 2, 8, B.DARK);
+  fill(33, 2, 8, 33, 2, 9, B.SHELF);
+  fill(30, 1, 12, 30, 1, 18, B.COBBLE);
+
+  // Café (Dinleme Köşesi) — Shadowing Studio
+  building({ name: 'Dinleme Köşesi', en: 'Café', x0: 4, z0: 26, w: 10, d: 8, wall: B.PLANKS, roof: B.ROOF, floor: B.DARK,
+    door: [8, 26], windows: [[5, 26], [6, 26], [10, 26], [11, 26], [12, 26], [4, 29], [4, 30]] });
+  fill(10, 2, 31, 12, 2, 31, B.DARK);
+  set(6, 2, 29, B.LOG); set(6, 2, 31, B.LOG);
+  fill(8, 1, 21, 8, 1, 25, B.COBBLE);
+
+  function tree(x, z) {
+    fill(x, 2, z, x, 5, z, B.LOG);
+    for (let dy = 0; dy < 3; dy++) {
+      const r = dy < 2 ? 2 : 1, y = 5 + dy;
+      for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+        if (r === 2 && Math.abs(dx) === 2 && Math.abs(dz) === 2 && rng() < 0.7) continue;
+        if (!get(x + dx, y, z + dz)) set(x + dx, y, z + dz, B.LEAVES);
+      }
+    }
+    set(x, 8, z, B.LEAVES); set(x + 1, 8, z, B.LEAVES); set(x - 1, 8, z, B.LEAVES); set(x, 8, z + 1, B.LEAVES); set(x, 8, z - 1, B.LEAVES);
+  }
+  [[17, 8], [28, 29], [33, 28], [30, 34], [2, 15], [37, 15], [24, 36], [16, 37], [2, 37], [37, 37]].forEach(([x, z]) => tree(x, z));
+  fill(26, 1, 26, 35, 1, 33, B.GRASS);
+  for (let i = 0; i < 18; i++) { const x = 26 + Math.floor(rng() * 10), z = 26 + Math.floor(rng() * 8); if (!get(x, 2, z)) set(x, 2, z, B.LEAVES); }
+
+  // ---------- meshing ----------
+  const FACES = [
+    { dir: [-1, 0, 0], shade: 0.78, c: [[0, 1, 0, 0, 1], [0, 0, 0, 0, 0], [0, 1, 1, 1, 1], [0, 0, 1, 1, 0]] },
+    { dir: [1, 0, 0], shade: 0.78, c: [[1, 1, 1, 0, 1], [1, 0, 1, 0, 0], [1, 1, 0, 1, 1], [1, 0, 0, 1, 0]] },
+    { dir: [0, -1, 0], shade: 0.5, c: [[1, 0, 1, 1, 0], [0, 0, 1, 0, 0], [1, 0, 0, 1, 1], [0, 0, 0, 0, 1]] },
+    { dir: [0, 1, 0], shade: 1.0, c: [[0, 1, 1, 1, 1], [1, 1, 1, 0, 1], [0, 1, 0, 1, 0], [1, 1, 0, 0, 0]] },
+    { dir: [0, 0, -1], shade: 0.64, c: [[1, 0, 0, 0, 0], [0, 0, 0, 1, 0], [1, 1, 0, 0, 1], [0, 1, 0, 1, 1]] },
+    { dir: [0, 0, 1], shade: 0.64, c: [[0, 0, 1, 0, 0], [1, 0, 1, 1, 0], [0, 1, 1, 0, 1], [1, 1, 1, 1, 1]] },
+  ];
+  const material = new THREE.MeshBasicMaterial({ map: texture, vertexColors: true, alphaTest: 0.5 });
+  let totalFaces = 0;
+
+  function solidAt(x, y, z) { const v = get(x, y, z); return v && !BLOCKS[v].clear; }
+  function buildMesh(inRegion) {
+    const pos = [], nrm = [], uv = [], col = [], ind = [];
+    const e = 0.002;
+    for (let y = 0; y < H; y++) for (let z = 0; z < D; z++) for (let x = 0; x < W; x++) {
+      const id = get(x, y, z);
+      if (!id || !inRegion(x, y, z)) continue;
+      const b = BLOCKS[id];
+      for (const f of FACES) {
+        const nx = x + f.dir[0], ny = y + f.dir[1], nz = z + f.dir[2];
+        let n = get(nx, ny, nz);
+        if (n && !inRegion(nx, ny, nz)) n = 0;
+        if (n && !(BLOCKS[n].clear && n !== id)) continue;
+        const tile = f.dir[1] > 0 ? b.top : f.dir[1] < 0 ? b.bottom : b.side;
+        const tc = tile % 4, tr = Math.floor(tile / 4);
+        // simple corner AO: darken vertices touching solid blocks above-side
+        const base = pos.length / 3;
+        for (const c of f.c) {
+          const vx = x + c[0], vy = y + c[1], vz = z + c[2];
+          pos.push(vx, vy, vz); nrm.push(f.dir[0], f.dir[1], f.dir[2]);
+          uv.push((tc + (c[3] ? 1 - e : e)) / 4, 1 - (tr + (c[4] ? e : 1 - e)) / 4);
+          let ao = 1;
+          if (f.dir[1] > 0) {
+            const sx = c[0] ? x + 1 : x - 1, sz = c[2] ? z + 1 : z - 1;
+            const s1 = solidAt(sx, y + 1, z), s2 = solidAt(x, y + 1, sz), s3 = solidAt(sx, y + 1, sz);
+            ao = 1 - 0.14 * ((s1 ? 1 : 0) + (s2 ? 1 : 0) + (s3 && !(s1 && s2) ? 1 : 0));
+          } else if (f.dir[1] === 0 && c[1] === 0) {
+            ao = 0.86;
+          }
+          const s = f.shade * ao;
+          col.push(s, s, s);
+        }
+        ind.push(base, base + 1, base + 2, base + 2, base + 1, base + 3);
+        totalFaces++;
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(ind);
+    return new THREE.Mesh(g, material);
+  }
+
+  const inUpper = (b, x, y, z) => y >= b.cutY && x >= b.x0 - 1 && x <= b.x1 + 1 && z >= b.z0 - 1 && z <= b.z1 + 1;
+  const scene = new THREE.Scene();
+  const baseMesh = buildMesh((x, y, z) => !buildings.some((b) => inUpper(b, x, y, z)));
+  scene.add(baseMesh);
+  for (const b of buildings) { b.upper = buildMesh((x, y, z) => inUpper(b, x, y, z)); scene.add(b.upper); }
+  const blockCount = world.reduce((n, v) => n + (v ? 1 : 0), 0);
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x6b7a4a, 0.8));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.55); sun.position.set(3, 6, 2); scene.add(sun);
+
+  // ---------- characters (boxes, animated in code) ----------
+  function faceTexture(skin, hair, eye) {
+    const c = document.createElement('canvas'); c.width = 8; c.height = 8;
+    const g = c.getContext('2d');
+    g.fillStyle = skin; g.fillRect(0, 0, 8, 8);
+    g.fillStyle = hair; g.fillRect(0, 0, 8, 2); g.fillRect(0, 2, 1, 2); g.fillRect(7, 2, 1, 2);
+    g.fillStyle = '#ffffff'; g.fillRect(1, 4, 1, 1); g.fillRect(6, 4, 1, 1);
+    g.fillStyle = eye; g.fillRect(2, 4, 1, 1); g.fillRect(5, 4, 1, 1);
+    g.fillStyle = 'rgba(120,50,40,0.75)'; g.fillRect(3, 6, 2, 1);
+    const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+    return t;
+  }
+  const lam = (color, map) => new THREE.MeshLambertMaterial(map ? { map } : { color });
+  function makeCharacter(o) {
+    const root = new THREE.Group();
+    const body = new THREE.Group(); root.add(body);
+    const box = (w, h, d, mat, px, py, pz, pivotTop) => {
+      const g = new THREE.BoxGeometry(w, h, d);
+      if (pivotTop) g.translate(0, -h / 2, 0);
+      const m = new THREE.Mesh(g, mat); m.position.set(px, py, pz); body.add(m); return m;
+    };
+    const legL = box(0.24, 0.75, 0.24, lam(o.pants), -0.125, 0.75, 0, true);
+    const legR = box(0.24, 0.75, 0.24, lam(o.pants), 0.125, 0.75, 0, true);
+    box(0.5, 0.75, 0.26, lam(o.shirt), 0, 1.125, 0);
+    if (o.apron) box(0.42, 0.62, 0.02, lam('#f7f4ec'), 0, 1.02, 0.14);
+    const armL = box(0.22, 0.72, 0.22, lam(o.shirt), -0.37, 1.48, 0, true);
+    const armR = box(0.22, 0.72, 0.22, lam(o.shirt), 0.37, 1.48, 0, true);
+    const skin = lam(o.skin), hair = lam(o.hair);
+    const headG = new THREE.BoxGeometry(0.5, 0.5, 0.5); headG.translate(0, 0.25, 0);
+    const head = new THREE.Mesh(headG, [skin, skin, hair, skin, lam(null, faceTexture(o.skin, o.hair, o.eye)), hair]);
+    head.position.set(0, 1.5, 0); body.add(head);
+    if (o.hat) { const h = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.3, 0.42), lam(o.hat)); h.position.set(0, 0.62, 0); head.add(h); }
+    if (o.ribbon) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.08, 0.52), lam(o.ribbon)); r.position.set(0, 0.42, 0); head.add(r); }
+    const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.36, 18), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
+    shadow.rotation.x = -Math.PI / 2; shadow.position.y = 0.02; root.add(shadow);
+    body.scale.setScalar(0.92);
+    scene.add(root);
+    return { root, body, head, legL, legR, armL, armR, phase: 0, yaw: 0 };
+  }
+
+  const player = makeCharacter({ shirt: '#2f8f83', pants: '#2c3a63', skin: '#e9b98f', hair: '#4a2c1a', eye: '#2a3d6b', ribbon: '#e2574c' });
+  const npcs = [
+    { id: 'maya', name: 'Fırıncı Maya', cell: [9, 6], line: 'Good morning! The croissants just came out of the oven. What can I get you?', ch: makeCharacter({ shirt: '#c96a3c', pants: '#5b4636', skin: '#d8a27a', hair: '#2b1b12', eye: '#3a2a1a', apron: true, hat: '#f7f4ec' }) },
+    { id: 'lina', name: 'Kütüphaneci Lina', cell: [31, 7], line: 'Shh… looking for something to read? This one is perfect for your level.', ch: makeCharacter({ shirt: '#5a4a8c', pants: '#2d2a3a', skin: '#f0c9a6', hair: '#b3562e', eye: '#2e5e3a' }) },
+    { id: 'leo', name: 'Barista Leo', cell: [11, 32], line: "Hey! Grab a latte and listen to today's episode with me.", ch: makeCharacter({ shirt: '#2f4d3a', pants: '#2a2a2a', skin: '#a8724f', hair: '#1a1210', eye: '#1a1210', apron: true }) },
+  ];
+  const npcCells = new Set(npcs.map((n) => n.cell.join(',')));
+  for (const n of npcs) { n.ch.root.position.set(n.cell[0] + 0.5, 2, n.cell[1] + 0.5); n.ch.yaw = 0; }
+
+  // ---------- walking ----------
+  const walkable = (x, z) => {
+    if (x < 0 || z < 0 || x >= W || z >= D) return false;
+    const g = get(x, 1, z);
+    if (!g || g === B.WATER) return false;
+    return !get(x, 2, z) && !get(x, 3, z) && !npcCells.has(x + ',' + z);
+  };
+  function findPath(sx, sz, tx, tz) {
+    const N = W * D, gScore = new Float32Array(N).fill(Infinity), came = new Int32Array(N).fill(-1), closed = new Uint8Array(N);
+    const k = (x, z) => z * W + x;
+    const h = (x, z) => { const dx = Math.abs(x - tx), dz = Math.abs(z - tz); return Math.max(dx, dz) + 0.414 * Math.min(dx, dz); };
+    const open = [k(sx, sz)]; gScore[open[0]] = 0;
+    while (open.length) {
+      let bi = 0, bf = Infinity;
+      for (let i = 0; i < open.length; i++) { const n = open[i], f = gScore[n] + h(n % W, (n / W) | 0); if (f < bf) { bf = f; bi = i; } }
+      const cur = open.splice(bi, 1)[0];
+      const cx = cur % W, cz = (cur / W) | 0;
+      if (cx === tx && cz === tz) {
+        const path = []; let c = cur;
+        while (c !== k(sx, sz)) { path.unshift([c % W, (c / W) | 0]); c = came[c]; }
+        return path;
+      }
+      closed[cur] = 1;
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dz) continue;
+        const nx = cx + dx, nz = cz + dz;
+        if (!walkable(nx, nz)) continue;
+        if (dx && dz && (!walkable(cx + dx, cz) || !walkable(cx, cz + dz))) continue;
+        const nk = k(nx, nz); if (closed[nk]) continue;
+        const g = gScore[cur] + (dx && dz ? 1.414 : 1);
+        if (g < gScore[nk]) { gScore[nk] = g; came[nk] = cur; if (!open.includes(nk)) open.push(nk); }
+      }
+    }
+    return null;
+  }
+  function nearestWalkable(x, z) {
+    for (let r = 0; r <= 6; r++) {
+      let best = null, bd = Infinity;
+      for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        if (walkable(x + dx, z + dz)) { const d = dx * dx + dz * dz; if (d < bd) { bd = d; best = [x + dx, z + dz]; } }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+
+  const state = { cell: [8, 15], path: [], from: null, t: 0 };
+  player.root.position.set(8.5, 2, 15.5);
+  const SPEED = 4.2;
+
+  // ---------- camera ----------
+  const ISO_ELEV = Math.atan(1 / Math.SQRT2);
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cam = { az: Math.PI / 4, azTarget: Math.PI / 4, zoom: 15, mode: 'iso', target: new THREE.Vector3(8.5, 2.5, 15.5) };
+  const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 400);
+  const persp = new THREE.PerspectiveCamera(38, 1, 0.1, 400);
+  let camera = ortho;
+
+  const app = document.getElementById('app');
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  app.prepend(renderer.domElement);
+
+  function resize() {
+    const w = app.clientWidth, h = app.clientHeight;
+    renderer.setSize(w, h);
+    persp.aspect = w / h; persp.updateProjectionMatrix();
+  }
+  function updateCamera() {
+    const w = app.clientWidth, h = app.clientHeight, aspect = w / h;
+    const elev = cam.mode === 'iso' ? ISO_ELEV : 0.68;
+    const dir = new THREE.Vector3(Math.sin(cam.az) * Math.cos(elev), Math.sin(elev), Math.cos(cam.az) * Math.cos(elev));
+    if (cam.mode === 'iso') {
+      const vh = cam.zoom;
+      ortho.left = -vh * aspect / 2; ortho.right = vh * aspect / 2; ortho.top = vh / 2; ortho.bottom = -vh / 2;
+      ortho.position.copy(cam.target).addScaledVector(dir, 120);
+      ortho.lookAt(cam.target); ortho.updateProjectionMatrix();
+      camera = ortho;
+    } else {
+      persp.position.copy(cam.target).addScaledVector(dir, cam.zoom * 1.45);
+      persp.lookAt(cam.target);
+      camera = persp;
+    }
+  }
+
+  // ---------- labels & bubbles ----------
+  const labels = buildings.map((b) => {
+    const el = document.createElement('div');
+    el.className = 'label';
+    el.innerHTML = `${b.name} <span>· ${b.en}</span>`;
+    app.appendChild(el);
+    const front = b.door[1] === b.z1 ? 1.6 : -0.6;
+    return { el, pos: new THREE.Vector3(b.door[0] + 0.5, 6.2, b.door[1] + front) };
+  });
+  for (const n of npcs) {
+    n.bubble = document.createElement('div');
+    n.bubble.className = 'bubble';
+    n.bubble.hidden = true;
+    n.bubble.innerHTML = `<strong>${n.name}</strong>${n.line}`;
+    app.appendChild(n.bubble);
+  }
+  const tmp = new THREE.Vector3();
+  function place(el, worldPos, anchorBottom) {
+    tmp.copy(worldPos).project(camera);
+    if (tmp.z > 1 || tmp.z < -1) { el.style.visibility = 'hidden'; return; }
+    el.style.visibility = 'visible';
+    const x = (tmp.x + 1) / 2 * app.clientWidth, y = (1 - tmp.y) / 2 * app.clientHeight;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    el.style.transform = `translate(${Math.round(x - w / 2)}px, ${Math.round(anchorBottom ? y - h - 8 : y - h / 2)}px)`;
+  }
+
+  // ---------- click marker ----------
+  const marker = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.42, 4, 1), new THREE.MeshBasicMaterial({ color: 0xf2b134, transparent: true, opacity: 0, depthWrite: false }));
+  marker.rotation.x = -Math.PI / 2; marker.rotation.z = Math.PI / 4; scene.add(marker);
+
+  // ---------- input ----------
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  let down = null;
+  renderer.domElement.addEventListener('pointerdown', (e) => { down = [e.clientX, e.clientY]; });
+  renderer.domElement.addEventListener('pointerup', (e) => {
+    if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 8) { down = null; return; }
+    down = null;
+    const r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    const targets = [baseMesh, ...buildings.filter((b) => b.upper.visible).map((b) => b.upper)];
+    const hit = raycaster.intersectObjects(targets, false)[0];
+    if (!hit) return;
+    const n = hit.face.normal;
+    const p = hit.point.clone().addScaledVector(n, n.y > 0.5 ? -0.01 : 0.5);
+    const cell = nearestWalkable(Math.floor(p.x), Math.floor(p.z));
+    if (cell) walkTo(cell);
+  });
+  function walkTo(cell) {
+    const moving = state.from && state.path.length;
+    const start = moving ? state.path[0] : state.cell;
+    const p = findPath(start[0], start[1], cell[0], cell[1]);
+    if (!p) return;
+    state.path = moving ? [start, ...p] : p;
+    marker.position.set(cell[0] + 0.5, 2.03, cell[1] + 0.5); marker.material.opacity = 0.95;
+  }
+
+  const keys = new Set();
+  window.addEventListener('keydown', (e) => {
+    if (e.target.closest && e.target.closest('input,textarea')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'q') rotate(-1); else if (k === 'e') rotate(1);
+    else if (k === '+' || k === '=') zoomBy(-1); else if (k === '-') zoomBy(1);
+    else if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) { keys.add(k); e.preventDefault(); }
+  });
+  window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+  function keyStep() {
+    let f = 0, s = 0;
+    if (keys.has('w') || keys.has('arrowup')) f += 1;
+    if (keys.has('s') || keys.has('arrowdown')) f -= 1;
+    if (keys.has('d') || keys.has('arrowright')) s += 1;
+    if (keys.has('a') || keys.has('arrowleft')) s -= 1;
+    if (!f && !s) return;
+    const a = cam.azTarget;
+    const fx = -Math.sin(a), fz = -Math.cos(a), rx = Math.cos(a), rz = -Math.sin(a);
+    const vx = fx * f + rx * s, vz = fz * f + rz * s;
+    const len = Math.hypot(vx, vz);
+    const dx = Math.round(vx / len), dz = Math.round(vz / len);
+    const [cx, cz] = state.cell, nx = cx + dx, nz = cz + dz;
+    if (!walkable(nx, nz) || (dx && dz && (!walkable(cx + dx, cz) || !walkable(cx, cz + dz)))) return;
+    state.path = [[nx, nz]];
+  }
+
+  function rotate(dir) { cam.azTarget += dir * Math.PI / 2; if (reduceMotion) cam.az = cam.azTarget; }
+  function zoomBy(dir) { cam.zoom = Math.min(30, Math.max(7, cam.zoom * (dir > 0 ? 1.15 : 1 / 1.15))); }
+  renderer.domElement.addEventListener('wheel', (e) => { e.preventDefault(); zoomBy(Math.sign(e.deltaY)); }, { passive: false });
+  document.getElementById('rotL').onclick = () => rotate(-1);
+  document.getElementById('rotR').onclick = () => rotate(1);
+  document.getElementById('zoomIn').onclick = () => zoomBy(-1);
+  document.getElementById('zoomOut').onclick = () => zoomBy(1);
+  const isoBtn = document.getElementById('modeIso'), perBtn = document.getElementById('modePersp');
+  function setMode(m) { cam.mode = m; isoBtn.setAttribute('aria-pressed', String(m === 'iso')); perBtn.setAttribute('aria-pressed', String(m !== 'iso')); }
+  isoBtn.onclick = () => setMode('iso'); perBtn.onclick = () => setMode('persp');
+
+  const info = document.getElementById('info');
+  if (window.innerWidth < 640) info.open = false;
+
+  // ---------- loop ----------
+  const stats = document.getElementById('stats');
+  let last = performance.now(), fpsAcc = 0, fpsN = 0, statT = 0, fps = 60;
+  function animate(ch, moving, dt) {
+    ch.phase += dt * (moving ? 10 : 2);
+    const sw = moving ? Math.sin(ch.phase) * 0.7 : 0;
+    ch.legL.rotation.x = sw; ch.legR.rotation.x = -sw;
+    ch.armL.rotation.x = -sw * 0.8; ch.armR.rotation.x = sw * 0.8;
+    ch.body.position.y = moving ? Math.abs(Math.cos(ch.phase)) * 0.05 : Math.sin(ch.phase) * 0.008;
+    let d = ch.yaw - ch.root.rotation.y;
+    d = Math.atan2(Math.sin(d), Math.cos(d));
+    ch.root.rotation.y += d * Math.min(1, dt * 12);
+  }
+  function tick(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    // movement
+    if (!state.path.length) keyStep();
+    let moving = false;
+    if (state.path.length) {
+      const next = state.path[0];
+      if (!state.from) { state.from = state.cell; state.t = 0; }
+      const dist = Math.hypot(next[0] - state.from[0], next[1] - state.from[1]);
+      state.t += dt * SPEED / dist;
+      const t = Math.min(1, state.t);
+      player.root.position.x = state.from[0] + 0.5 + (next[0] - state.from[0]) * t;
+      player.root.position.z = state.from[1] + 0.5 + (next[1] - state.from[1]) * t;
+      player.yaw = Math.atan2(next[0] - state.from[0], next[1] - state.from[1]);
+      moving = true;
+      if (t >= 1) { state.cell = next; state.path.shift(); state.from = null; }
+    }
+    animate(player, moving, dt);
+    marker.material.opacity = Math.max(0, marker.material.opacity - dt * (moving ? 0.4 : 1.6));
+
+    // building cutaway
+    const pcx = Math.floor(player.root.position.x), pcz = Math.floor(player.root.position.z);
+    for (const b of buildings) b.upper.visible = !(pcx >= b.x0 && pcx <= b.x1 && pcz >= b.z0 && pcz <= b.z1);
+
+    // npcs look at the player when near
+    for (const n of npcs) {
+      const dx = player.root.position.x - n.ch.root.position.x, dz = player.root.position.z - n.ch.root.position.z;
+      const near = Math.hypot(dx, dz) < 3;
+      n.ch.yaw = near ? Math.atan2(dx, dz) : 0;
+      animate(n.ch, false, dt);
+      n.near = near;
+    }
+
+    // camera
+    cam.az += (cam.azTarget - cam.az) * Math.min(1, dt * 7);
+    cam.target.lerp(tmp.set(player.root.position.x, 2.6, player.root.position.z), Math.min(1, dt * 5));
+    updateCamera();
+    renderer.render(scene, camera);
+
+    for (const l of labels) place(l.el, l.pos, true);
+    for (const n of npcs) {
+      n.bubble.hidden = !n.near;
+      if (n.near) place(n.bubble, new THREE.Vector3(n.ch.root.position.x, 4.3, n.ch.root.position.z), true);
+    }
+
+    fpsAcc += dt; fpsN++; statT += dt;
+    if (statT > 0.5) {
+      fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; statT = 0;
+      const nf = new Intl.NumberFormat('tr-TR');
+      stats.innerHTML = `<b>${nf.format(blockCount)}</b> blok · <b>${nf.format(totalFaces)}</b> yüz<br><b>${renderer.info.render.calls}</b> çizim çağrısı · <b>${fps}</b> fps`;
+    }
+    requestAnimationFrame(tick);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(tick);
+})();
+</script>

@@ -1,0 +1,178 @@
+
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class DialogueTurn(BaseModel):
+    speaker: Literal["user", "npc", "coach"]
+    text: str
+
+
+class NPCTask(BaseModel):
+
+    id: str
+    description: str
+
+
+class NPCIdentity(BaseModel):
+
+    id: str
+    name: str
+    role: str
+    user_role: str
+    location: str
+    personality: str
+    tasks: list[NPCTask] = Field(default_factory=list)
+    scenario_state: dict[str, Any] = Field(default_factory=dict)
+
+
+class LanguageEvaluationInput(BaseModel):
+
+    utterance: str
+    context: str
+    speaker: str
+    listener: str
+    communicative_goals: list[str] = Field(default_factory=list)
+    scenario_state: dict[str, Any] = Field(default_factory=dict)
+    dialogue_history: list[DialogueTurn] = Field(default_factory=list)
+
+
+class PlausibilityEstimate(BaseModel):
+
+    probability_percent: float = Field(ge=0, le=100)
+    brief_reason: str
+
+
+class LanguageEvaluationResult(PlausibilityEstimate):
+
+    threshold: float = Field(ge=0, le=100)
+    accepted: bool
+
+
+class CorrectionInput(BaseModel):
+
+    model_config = ConfigDict(extra="forbid")
+
+    utterance: str
+    dialogue_history: list[DialogueTurn] = Field(default_factory=list)
+
+
+class CorrectionResult(BaseModel):
+    corrected_utterance: str
+    coach_response: str
+
+
+class GrammarFinding(BaseModel):
+    topic_id: int = Field(ge=1, le=50)
+    topic_name: str
+    count: int = Field(default=1, ge=1)
+    evidence: list[str] = Field(default_factory=list)
+    issue: Optional[str] = None
+
+
+class VocabularyFinding(BaseModel):
+    lemma: str
+    surface_form: str
+    part_of_speech: Literal["noun", "adjective"]
+    cefr_level: Literal["A1", "A2", "B1", "B2", "C1", "C2"]
+    count: int = Field(default=1, ge=1)
+    issue: Optional[str] = None
+
+
+class VocabularyErrorFinding(BaseModel):
+    lemma: str
+    surface_form: str
+    part_of_speech: Literal[
+        "noun",
+        "verb",
+        "adjective",
+        "adverb",
+        "pronoun",
+        "preposition",
+        "conjunction",
+        "determiner",
+    ]
+    error_type: Literal[
+        "spelling",
+        "word_form",
+        "lexical_choice",
+        "sense",
+        "collocation",
+    ]
+    count: int = Field(default=1, ge=1)
+    issue: str
+
+
+class IdiomFinding(BaseModel):
+    idiom: str
+    normalized_idiom: str
+    count: int = Field(default=1, ge=1)
+    issue: Optional[str] = None
+
+
+class ExtractionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    utterance: str
+
+
+class CorrectExtractionResult(BaseModel):
+    outcome: Literal["correct"] = "correct"
+    grammar: list[GrammarFinding] = Field(default_factory=list)
+    vocabulary: list[VocabularyFinding] = Field(default_factory=list)
+    idioms: list[IdiomFinding] = Field(default_factory=list)
+
+
+class IncorrectExtractionResult(BaseModel):
+    outcome: Literal["incorrect"] = "incorrect"
+    grammar: list[GrammarFinding] = Field(default_factory=list)
+    vocabulary: list[VocabularyErrorFinding] = Field(default_factory=list)
+    idioms: list[IdiomFinding] = Field(default_factory=list)
+
+
+ExtractionResult = CorrectExtractionResult | IncorrectExtractionResult
+
+
+class EvaluateRequest(BaseModel):
+    location: str  # orn: "bakery"
+    npc_role: str  # orn: "baker"
+    scenario_state: dict = Field(default_factory=dict)
+    dialogue_history: list[DialogueTurn] = Field(default_factory=list)
+    user_text: str
+
+
+class RewardInfo(BaseModel):
+    gained_xp: int
+    gained_coins: int
+    total_xp: int
+    total_coins: int
+
+
+class EvaluateResponse(BaseModel):
+    accepted: bool
+    correction: Optional[str] = None
+    npc_response: str
+    response_speaker: Literal["npc", "coach"]
+    updated_scenario_state: dict = Field(default_factory=dict)
+    probability_percent: Optional[float] = Field(default=None, ge=0, le=100)
+    evaluation_reason: Optional[str] = None
+    rewards: Optional[RewardInfo] = None
+
+
+class TTSRequest(BaseModel):
+    text: str
+    voice: str = "Kore"
+    style: str = "Speak naturally, warmly, and at a patient conversational pace."
+
+
+class TTSResponse(BaseModel):
+    audio_url: str
+
+
+class STTResponse(BaseModel):
+    text: str
+    language_code: Optional[str] = None
+    mode: Literal["verbatim"] = "verbatim"
+    model: str
+    latency_ms: int = Field(ge=0)
