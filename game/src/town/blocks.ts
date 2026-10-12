@@ -1,10 +1,11 @@
 /**
  * Block catalogue. One block = 1 m x 1 m x 1 m. Every block maps its faces to
- * 16x16 tiles in a 4x4 texture atlas (see textures.ts).
+ * 16x16 tiles in an 8x8 texture atlas (see textures.ts).
  */
 
 export const TILE_PX = 16;
-export const ATLAS_COLUMNS = 4;
+/** Atlas is ATLAS_COLUMNS x ATLAS_COLUMNS tiles. */
+export const ATLAS_COLUMNS = 8;
 
 export const Tile = {
   grassTop: 0,
@@ -23,6 +24,7 @@ export const Tile = {
   shelf: 13,
   water: 14,
   dark: 15,
+  cdShelf: 16,
 } as const;
 
 export const Block = {
@@ -41,6 +43,7 @@ export const Block = {
   SHELF: 12,
   WATER: 13,
   DARK: 14,
+  CD_SHELF: 15,
 } as const;
 
 export type BlockId = (typeof Block)[keyof typeof Block];
@@ -82,6 +85,7 @@ DEFS[Block.AWNING] = def("awning", Tile.awning);
 DEFS[Block.SHELF] = def("shelf", Tile.planks, Tile.shelf, Tile.planks);
 DEFS[Block.WATER] = def("water", Tile.water, Tile.water, Tile.water, false, false);
 DEFS[Block.DARK] = def("dark planks", Tile.dark);
+DEFS[Block.CD_SHELF] = def("cd shelf", Tile.dark, Tile.cdShelf, Tile.dark);
 
 export function getBlockDef(id: number): BlockDef | undefined {
   return DEFS[id];

@@ -64,6 +64,9 @@ function loadVocabulary(location) {
   }
 }
 
+// Dub scenes generated from api/routes/dub.py (see mock-dub-scripts.json).
+const DUB_SCRIPTS = JSON.parse(readFileSync(new URL("./mock-dub-scripts.json", import.meta.url), "utf-8"));
+
 const sessions = []; // index = session id - 1 -> location
 const PLACE_NAMES = { bakery: "bakery", library: "library", cafe: "café" };
 
@@ -102,6 +105,31 @@ function conceptProgress(location, concept) {
 const server = http.createServer((request, response) => {
   if (request.method === "OPTIONS") {
     reply(response, 204, {});
+    return;
+  }
+
+  if (request.method === "GET" && request.url === "/api/dub/scripts") {
+    reply(response, 200, DUB_SCRIPTS);
+    return;
+  }
+
+  const scoreMatch = request.method === "POST"
+    ? /^\/api\/dub\/scripts\/([^/]+)\/lines\/(\d+)\/score$/.exec(request.url ?? "")
+    : null;
+  if (scoreMatch) {
+    request.resume(); // ignore the uploaded audio
+    const script = DUB_SCRIPTS.find((s) => s.id === scoreMatch[1]);
+    const line = script?.lines.find((l) => l.id === Number(scoreMatch[2]));
+    if (!line) {
+      reply(response, 404, { detail: "Line not found" });
+      return;
+    }
+    // Pretend the player got most words right; one random word is marked wrong.
+    const words = line.text.split(/\s+/).filter(Boolean);
+    const miss = words.length > 3 ? Math.floor(Math.random() * words.length) : -1;
+    const verdicts = words.map((word, i) => ({ word, correct: i !== miss }));
+    const accuracy = Math.round((verdicts.filter((w) => w.correct).length / Math.max(1, words.length)) * 100);
+    reply(response, 200, { transcript: line.text, expected: line.text, words: verdicts, accuracy_percent: accuracy });
     return;
   }
 

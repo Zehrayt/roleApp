@@ -5,7 +5,7 @@ import { createRng, pick, type Rng } from "./rng";
 /**
  * Original 16x16 block textures painted in code. No Minecraft assets are used:
  * Mojang's usage guidelines reserve its textures. To swap in hand-made or
- * Codex-generated art later, replace this atlas with a 64x64 PNG in the same tile order.
+ * Codex-generated art later, replace this atlas with a 128x128 PNG (8x8 tiles) in the same tile order.
  */
 
 type Painter = (x: number, y: number) => string | null;
@@ -110,6 +110,18 @@ export function paintBlockAtlas(seed = 20261012): HTMLCanvasElement {
     const book = books.find((b) => b.x === x && y >= b.y0 && y <= b.y1);
     if (!book) return "#3a2716";
     return y < book.top ? "#3a2716" : book.color;
+  });
+  // CD / cassette rack: two rows of thin, bright cases with white label dots.
+  const CASES = ["#e2574c", "#3d8bd6", "#f2b134", "#52b36b", "#a65fd6", "#e07ab5", "#2fb8b0", "#f4efe6"];
+  const caseCols = Array.from({ length: TILE_PX }, () => pick(rng, CASES));
+  paint(Tile.cdShelf, (x, y) => {
+    if (x === 0 || x === 15) return "#3a2716";
+    if (y === 0 || y === 7 || y === 8 || y === 15) return y === 8 || y === 15 ? "#2a1c10" : "#5b3d25";
+    const top = y < 8 ? 1 : 9;
+    const c = caseCols[(x + (y < 8 ? 0 : 5)) % TILE_PX] ?? "#3d8bd6";
+    if (y === top) return "#1e140c";
+    if (y === top + 2 && x % 2 === 0) return "#ffffff";
+    return x % 2 === 0 ? c : "#1e140c";
   });
   paint(Tile.water, (x, y) => ((x + 2 * y) % 7 === 0 && rng() < 0.6 ? "#86b6f0" : pick(rng, ["#3b74c9", "#4682d6", "#3368b8"])));
 

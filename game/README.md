@@ -10,8 +10,10 @@ The Praglish game client has two pages:
   reachable from the town's top-right links. Open a mode directly with
   `studio.html?scene=DashboardScene`.
 
-The dub studio ("Listen & Repeat") lives in the town: walk into the Dublaj
-Stüdyosu building and press `E`, or open `index.html?open=dub`. Code: `src/dub/`.
+The dub studio ("Listen & Repeat") lives in the town as the Kaset & CD shop:
+walk up to a CD rack and press `K`, browse the cases with the arrow keys, press
+Space to pick a scene and a character, then record. `index.html?open=dub` opens
+the shop directly. Code: `src/dub/`.
 
 After pulling, run `npm install` once: the town adds the `three` dependency.
 

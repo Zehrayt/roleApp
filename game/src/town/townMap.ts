@@ -80,6 +80,10 @@ export interface Activity {
   id: "dub";
   /** Text on the interaction prompt. */
   label: string;
+  /** Key that opens it (besides E), shown on the prompt. */
+  key: string;
+  /** Blocks the player must stand next to (e.g. the CD shelves). */
+  anchors: BlockPos[];
 }
 
 export interface BuildingSpec {
@@ -263,19 +267,22 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.set(5, 2, 31, Block.PLANKS);
   world.fill(8, GROUND_Y, 21, 8, GROUND_Y, 25, Block.COBBLE);
 
-  // Dublaj Stüdyosu — "Listen & Repeat" (dub the scene), opened in place as an overlay.
+  // Kaset & CD dükkânı — "Dub the Scene": pick a scene from the CD racks, then record.
+  // Racks on the west and north walls so their CD faces point at the default camera.
+  const cdShelves = [...blockRange(28, 2, 28, 28, 3, 31), ...blockRange(31, 2, 27, 33, 3, 27)];
   buildings.push(placeBuilding(world, {
-    id: "studio", name: "Dublaj Stüdyosu", nameEn: "Dub Studio",
+    id: "studio", name: "Kaset & CD", nameEn: "Dub Shop",
     x0: 27, z0: 26, w: 8, d: 7,
     wall: Block.BRICK, roof: Block.DARK, floor: Block.DARK,
     door: { x: 30, z: 26 },
     windows: [{ x: 28, z: 26 }, { x: 32, z: 26 }, { x: 33, z: 26 }],
-    activity: { id: "dub", label: "Dublaj Stüdyosu'na gir" },
+    activity: { id: "dub", label: "Film seçenekleri", key: "K", anchors: cdShelves },
   }));
-  world.fill(28, 2, 31, 33, 2, 31, Block.DARK);
+  for (const b of cdShelves) world.set(b.x, b.y, b.z, Block.CD_SHELF);
+  world.set(32, 2, 31, Block.DARK); // shop counter
   world.fill(30, GROUND_Y, 21, 30, GROUND_Y, 25, Block.COBBLE);
 
-  const trees: Array<[number, number]> = [[17, 8], [2, 15], [37, 15], [24, 36], [16, 37], [2, 37], [37, 37], [22, 9]];
+  const trees: Array<[number, number]> = [[17, 8], [2, 15], [37, 15], [16, 37], [2, 37], [37, 37], [22, 9]];
   for (const [x, z] of trees) placeTree(world, x, z, rng);
   for (let i = 0; i < 14; i++) {
     const x = 22 + Math.floor(rng() * 4);

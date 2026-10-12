@@ -29,22 +29,13 @@ const DUCK_VOLUME = 0.12;
 
 // ---------------------------------------------------------------------
 // tutulmuyor.)
-const NOTE_IMAGES = [
-  "/assets/dub/ui/note1.png",
-  "/assets/dub/ui/note2.png",
-  "/assets/dub/ui/note3.png",
-  "/assets/dub/ui/note4.png",
-] as const;
-const SCRIPT_NOTE_INDEX: Record<string, number> = {
-  "charade-44": 1, // buyutec - casusluk/gerilim sahnesi
-  "superman-caverns": 3, // roket - bilim-kurgu/superkahraman
-  "notld-cemetery": 2, // orumcek agi - korku sahnesi
-  "gulliver-wedding": 0, // duz kagit - masalsi macera
-};
-function noteAssetForScript(scriptId: string, index: number): { url: string; variant: number } {
-  const noteIndex = SCRIPT_NOTE_INDEX[scriptId] ?? index % NOTE_IMAGES.length;
-  return { url: NOTE_IMAGES[noteIndex]!, variant: noteIndex + 1 };
+/** Stable hue per scene so each case keeps its colour. */
+function caseHue(id: string): number {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return h;
 }
+
 const CHARACTER_PILL_COLORS = ["#6bbf6b", "#e0668f", "#e8a23c", "#8f7ae0", "#4fb8c9"] as const;
 function characterPillColor(index: number): string {
   return CHARACTER_PILL_COLORS[index % CHARACTER_PILL_COLORS.length]!;
@@ -85,7 +76,10 @@ export class DubStudio {
   private screen: Screen = "start";
 
   private availableScripts: DubScript[] = [];
-  private levelsEl: HTMLElement | null = null;
+  private shelfIndex = 0;
+  private pickingCharacter = false;
+  private characterIndex = 0;
+  private readonly onKey = (event: KeyboardEvent): void => this.handleKey(event);
   private helpOutsideClickHandler: ((event: MouseEvent) => void) | null = null;
 
   private script: DubScript | null = null;
@@ -120,7 +114,10 @@ export class DubStudio {
     this.overlay.append(this.stage);
     container.append(this.overlay);
     // Keep keys typed inside the studio away from the town's controls.
-    this.overlay.addEventListener("keydown", (event) => event.stopPropagation());
+    this.overlay.addEventListener("keydown", (event) => {
+      this.handleKey(event);
+      event.stopPropagation();
+    });
   }
 
   public get isOpen(): boolean {
@@ -131,6 +128,7 @@ export class DubStudio {
     this.overlay.hidden = false;
     this.fitStage();
     window.addEventListener("resize", this.onResize);
+    window.addEventListener("keydown", this.onKey);
     this.playbackAbort = false;
     this.resetState();
     this.screen = "start";
@@ -155,11 +153,11 @@ export class DubStudio {
       this.availableScripts = [...scripts].sort((a, b) => a.level - b.level);
       this.scriptsLoaded = true;
       if (this.screen !== "start") return; // the user may have already left this screen
-      this.renderLevelMap();
+      this.refreshShelf();
     } catch {
       this.availableScripts = [];
       if (this.screen === "start") {
-        this.setStatus("Scenes could not be loaded. Is the server running? Refresh the page and try again.", true);
+        this.setStatus("Sahneler yüklenemedi. Sunucu çalışıyor mu? Sayfayı yenileyip tekrar dene.", true);
       }
     }
   }
@@ -225,50 +223,152 @@ export class DubStudio {
   // ---------------------------------------------------------------------
   // ---------------------------------------------------------------------
 
-  private renderLevelMap(): void {
-    if (!this.levelsEl) return;
-    if (this.availableScripts.length === 0) {
-      this.levelsEl.innerHTML = `<p class="dialogue-status">No scenes have been added yet.</p>`;
-      return;
-    }
+  // ---------------------------------------------------------------------
+  // CD shop shelf: browse scene "cases" with ←/→, Space picks, then a character.
+  // ---------------------------------------------------------------------
 
-    this.levelsEl.innerHTML = this.availableScripts
-      .map((script, index) => this.renderLevelItemHtml(script, index))
-      .join("");
-
-    this.levelsEl.querySelectorAll("[data-action='pick-character']").forEach((el) => {
-      el.addEventListener("click", () => {
-        const button = el as HTMLElement;
-        const scriptId = button.dataset["script"];
-        const character = button.dataset["character"];
-        if (!scriptId || !character) return;
-        const script = this.availableScripts.find((s) => s.id === scriptId);
-        if (!script) return;
-        this.recordLastCharacter(scriptId, character);
-        this.startScene(script, character);
-      });
-    });
+  private refreshShelf(): void {
+    if (this.screen !== "start") return;
+    this.renderShelfCases();
   }
 
-  private renderLevelItemHtml(script: DubScript, index: number): string {
-    const charsHtml = script.characters
-      .map(
-        (c, charIndex) =>
-          `<button type="button" class="dub-char-pill" style="--pill-color:${characterPillColor(charIndex)}" data-action="pick-character" data-script="${this.escapeHtml(script.id)}" data-character="${this.escapeHtml(c)}">${this.escapeHtml(c)}</button>`,
-      )
+  private shelfMove(step: number): void {
+    const count = this.availableScripts.length;
+    if (count === 0) return;
+    if (this.pickingCharacter) {
+      const script = this.availableScripts[this.shelfIndex];
+      if (!script) return;
+      const n = script.characters.length;
+      this.characterIndex = (this.characterIndex + step + n) % n;
+    } else {
+      this.shelfIndex = Math.max(0, Math.min(count - 1, this.shelfIndex + step));
+    }
+    this.renderShelfCases();
+  }
+
+  private shelfSelect(): void {
+    const script = this.availableScripts[this.shelfIndex];
+    if (!script) return;
+    if (!this.pickingCharacter) {
+      if (script.characters.length === 1) {
+        this.beginScene(script, script.characters[0] ?? "");
+        return;
+      }
+      this.pickingCharacter = true;
+      const last = this.getLastCharacter(script.id, script.characters[0] ?? "");
+      this.characterIndex = Math.max(0, script.characters.indexOf(last));
+      this.renderShelfCases();
+      return;
+    }
+    const character = script.characters[this.characterIndex];
+    if (character) this.beginScene(script, character);
+  }
+
+  private beginScene(script: DubScript, character: string): void {
+    this.pickingCharacter = false;
+    this.recordLastCharacter(script.id, character);
+    this.startScene(script, character);
+  }
+
+  private handleKey(event: KeyboardEvent): void {
+    if (!this.isOpen) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("input, textarea")) return;
+    const key = event.key;
+    if (this.screen === "start") {
+      if (key === "ArrowLeft" || key === "a" || key === "A") this.shelfMove(-1);
+      else if (key === "ArrowRight" || key === "d" || key === "D") this.shelfMove(1);
+      else if (key === " " || key === "Enter") this.shelfSelect();
+      else if (key === "Escape" || key === "Backspace") {
+        if (this.pickingCharacter) {
+          this.pickingCharacter = false;
+          this.renderShelfCases();
+        } else {
+          this.exitToMenu();
+        }
+      } else return;
+      event.preventDefault();
+      return;
+    }
+    if (key === "Escape") {
+      event.preventDefault();
+      if (this.screen === "journal") this.renderStart();
+      else this.exitToLevelSelect();
+    }
+  }
+
+  private renderShelfCases(): void {
+    const shelf = this.panel?.querySelector<HTMLElement>('[data-role="shelf"]');
+    const info = this.panel?.querySelector<HTMLElement>('[data-role="info"]');
+    if (!shelf || !info) return;
+    const scripts = this.availableScripts;
+    if (scripts.length === 0) {
+      shelf.replaceChildren();
+      info.innerHTML = `<p class="dub-shop__empty">Rafta henüz sahne yok.</p>`;
+      return;
+    }
+    this.shelfIndex = Math.max(0, Math.min(scripts.length - 1, this.shelfIndex));
+
+    shelf.replaceChildren(
+      ...scripts.map((script, i) => {
+        const offset = i - this.shelfIndex;
+        const abs = Math.abs(offset);
+        const el = document.createElement("button");
+        el.type = "button";
+        el.className = `dub-case${offset === 0 ? " is-current" : ""}${offset === 0 && this.pickingCharacter ? " is-open" : ""}`;
+        el.style.setProperty("--hue", String(caseHue(script.id)));
+        el.style.transform =
+          offset === 0
+            ? "translateX(0) translateZ(80px) rotateY(0deg)"
+            : `translateX(${offset * 150 + Math.sign(offset) * 90}px) translateZ(${-abs * 40}px) rotateY(${offset < 0 ? 62 : -62}deg)`;
+        el.style.zIndex = String(100 - abs);
+        el.style.opacity = abs > 4 ? "0" : "1";
+        el.setAttribute("aria-label", `${script.title}, seviye ${script.level}`);
+        el.tabIndex = -1;
+        el.innerHTML = `
+          <span class="dub-case__spine">${this.escapeHtml(script.title)}</span>
+          <span class="dub-case__cover">
+            <span class="dub-case__level">LEVEL ${script.level}</span>
+            <span class="dub-case__title">${this.escapeHtml(script.title)}</span>
+            <span class="dub-case__cast">${script.characters.map((c) => this.escapeHtml(c)).join(" · ")}</span>
+            <span class="dub-case__disc" aria-hidden="true"></span>
+          </span>`;
+        el.addEventListener("click", () => {
+          if (offset === 0) this.shelfSelect();
+          else {
+            this.pickingCharacter = false;
+            this.shelfIndex = i;
+            this.renderShelfCases();
+          }
+        });
+        return el;
+      }),
+    );
+
+    const script = scripts[this.shelfIndex];
+    if (!script) return;
+    const pills = script.characters
+      .map((c, i) => {
+        const done = this.getCharacterCompletion(script.id, c);
+        const selected = this.pickingCharacter && i === this.characterIndex;
+        return `<button type="button" class="dub-char-pill${selected ? " is-selected" : ""}" style="--pill-color:${characterPillColor(i)}" data-character-index="${i}" aria-pressed="${selected}">${this.escapeHtml(c)}${done !== null ? ` <small>✓ %${Math.round(done)}</small>` : ""}</button>`;
+      })
       .join("");
-
-    const note = noteAssetForScript(script.id, index);
-    const displayTitle = this.escapeHtml(script.title.toUpperCase());
-
-    return `
-      <div class="dub-note-card" data-note-variant="${note.variant}" style="background-image:url('${note.url}')">
-        <div class="dub-note-content">
-          <div class="dub-note-title">${displayTitle}</div>
-          <div class="dub-note-chars">${charsHtml}</div>
-        </div>
-      </div>
-    `;
+    info.innerHTML = `
+      <p class="dub-shop__title">${this.escapeHtml(script.title)} <span>· ${this.shelfIndex + 1}/${scripts.length}</span></p>
+      <p class="dub-shop__hint">${
+        this.pickingCharacter
+          ? "Hangi karakteri seslendireceksin? ← → seç, <kbd>Boşluk</kbd> ile stüdyoya geç."
+          : `${script.lines.length} replik · ${script.characters.length} karakter. <kbd>Boşluk</kbd> ile bu sahneyi seç.`
+      }</p>
+      <div class="dub-shop__cast">${pills}</div>`;
+    info.querySelectorAll<HTMLButtonElement>("[data-character-index]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.pickingCharacter = true;
+        this.characterIndex = Number(btn.dataset["characterIndex"] ?? 0);
+        this.shelfSelect();
+      });
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -290,6 +390,7 @@ export class DubStudio {
     this.mediaStream = null;
     this.overlay.hidden = true;
     window.removeEventListener("resize", this.onResize);
+    window.removeEventListener("keydown", this.onKey);
   }
 
   private exitToLevelSelect(): void {
@@ -331,6 +432,7 @@ export class DubStudio {
         ? "studio"
         : null;
     this.setScreenBackdrop(backdrop);
+    this.overlay.classList.toggle("is-shop", node.querySelector(".dub-shop") !== null);
     this.statusEl = node.querySelector('[data-role="status"]');
     const closeBtn = node.querySelector('[data-action="exit"]');
     closeBtn?.addEventListener("click", () => onExit());
@@ -412,48 +514,28 @@ export class DubStudio {
 
   private renderStart(): void {
     this.screen = "start";
+    this.pickingCharacter = false;
     const node = this.mount(`
-      <div class="dialogue-panel dub-panel dub-panel--levels">
-        <div class="dub-levels-header">
-          <button type="button" class="dub-wood-btn dub-wood-btn--back" data-action="exit" aria-label="Go back">BACK</button>
-          <div class="dub-wood-banner">LISTEN &amp; REPEAT</div>
-          <button type="button" class="dub-help-icon dub-journal-icon" data-action="open-journal" aria-label="Progress Journal" title="Progress Journal">&#128214;</button>
-          <div class="dub-help" data-role="help">
-            <button type="button" class="dub-help-icon" data-action="toggle-help" aria-label="Help">?</button>
-            <div class="dub-help-tooltip" role="tooltip">
-              <strong>Dub the Scene</strong>
-              Choose a level, then select the character you want to perform.
-            </div>
-          </div>
+      <div class="dub-shop">
+        <header class="dub-shop__head">
+          <button type="button" class="dub-shop__btn" data-action="exit">&larr; Kasaba</button>
+          <div class="dub-shop__sign"><strong>KASET &amp; CD</strong><span>Bir sahne seç, karakterini seslendir</span></div>
+          <button type="button" class="dub-shop__btn" data-action="open-journal">Günlük</button>
+        </header>
+        <div class="dub-shop__status" data-role="status"></div>
+        <div class="dub-shop__rack">
+          <button type="button" class="dub-shop__arrow" data-action="prev" aria-label="Önceki sahne">&#9664;</button>
+          <div class="dub-shop__shelf" data-role="shelf"><p class="dub-shop__empty">Raf yükleniyor…</p></div>
+          <button type="button" class="dub-shop__arrow" data-action="next" aria-label="Sonraki sahne">&#9654;</button>
         </div>
-        <div class="dialogue-status dub-levels-status" data-role="status"></div>
-        <div class="dub-body dub-levels-body">
-          <div class="dub-levels" data-role="levels"><p class="dialogue-status">Loading...</p></div>
-        </div>
+        <div class="dub-shop__info" data-role="info"></div>
+        <footer class="dub-shop__keys"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> gez · <kbd>Boşluk</kbd> seç · <kbd>Esc</kbd> geri</footer>
       </div>
     `);
-
     node.querySelector('[data-action="open-journal"]')?.addEventListener("click", () => this.renderJournal());
-
-    const helpEl = node.querySelector('[data-role="help"]') as HTMLElement | null;
-    const helpToggle = node.querySelector('[data-action="toggle-help"]');
-    helpToggle?.addEventListener("click", (event) => {
-      event.stopPropagation();
-      helpEl?.classList.toggle("open");
-    });
-    if (this.helpOutsideClickHandler) {
-      document.removeEventListener("click", this.helpOutsideClickHandler);
-    }
-    this.helpOutsideClickHandler = (event: MouseEvent) => {
-      if (!helpEl || !helpEl.classList.contains("open")) return;
-      if (event.target instanceof Node && !helpEl.contains(event.target)) {
-        helpEl.classList.remove("open");
-      }
-    };
-    document.addEventListener("click", this.helpOutsideClickHandler);
-
-    this.levelsEl = node.querySelector('[data-role="levels"]') as HTMLElement;
-    if (this.availableScripts.length > 0) this.renderLevelMap();
+    node.querySelector('[data-action="prev"]')?.addEventListener("click", () => this.shelfMove(-1));
+    node.querySelector('[data-action="next"]')?.addEventListener("click", () => this.shelfMove(1));
+    if (this.availableScripts.length > 0) this.renderShelfCases();
   }
 
   // ---------------------------------------------------------------------

@@ -105,10 +105,22 @@ describe("town map", () => {
     }
   });
 
-  it("hosts the dub studio in the studio building instead of a portal", () => {
-    const studio = town.buildings.find((b) => b.id === "studio");
-    expect(studio?.activity?.id).toBe("dub");
-    expect(studio?.portal).toBe(undefined);
+  it("opens the dub shop from CD shelves you can walk up to", () => {
+    const shop = town.buildings.find((b) => b.id === "studio");
+    expect(shop?.activity?.id).toBe("dub");
+    expect(shop?.activity?.key).toBe("K");
+    expect(shop?.portal).toBe(undefined);
+    const anchors = shop?.activity?.anchors ?? [];
+    expect(anchors.length).toBeGreaterThan(0);
+    for (const a of anchors) expect(world.get(a.x, a.y, a.z)).toBe(Block.CD_SHELF);
+    const reachable = anchors.some((a) =>
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => {
+        const x = a.x + (dx ?? 0);
+        const z = a.z + (dz ?? 0);
+        return grid.isWalkable(x, z) && findPath(grid, spawn, { x, y: z }) !== null;
+      }),
+    );
+    expect(reachable).toBe(true);
   });
 
   it("uses only backend scenarios that exist", () => {

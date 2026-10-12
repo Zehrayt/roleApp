@@ -96,6 +96,7 @@ export class TownGame {
   private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | null = null;
   private nearestProp: PropSpec | null = null;
   private pendingProp: PropSpec | null = null;
+  private pendingActivity: BuildingSpec | null = null;
   private pointerDown: { x: number; y: number } | null = null;
   private last = performance.now();
   private fpsTime = 0;
@@ -342,14 +343,13 @@ export class TownGame {
       const target = e.target as HTMLElement | null;
       if (target?.closest("input, textarea, select")) return;
       const k = e.key.toLowerCase();
-      if (this.dubStudio.isOpen) {
-        if (k === "escape") this.dubStudio.close();
-        return;
-      }
+      // The dub shop handles its own keys (←/→, Space, Esc) while it is open.
+      if (this.dubStudio.isOpen) return;
       if (k === "escape") this.activePanel?.close();
       else if (k === "e" || k === "enter") this.interact();
       else if (k === "f" && this.nearestProp) this.openVocab(this.nearestProp);
       else if (k === "b") this.openSpellBook();
+      else if (k === "k" && this.interaction?.kind === "activity") this.interact();
       else if (k === "q") this.rig.rotate(-1);
       else if (k === "r") this.rig.rotate(1);
       else if (k === "+" || k === "=") this.rig.zoomBy(-1);
@@ -390,9 +390,27 @@ export class TownGame {
     if (!hit || !hit.face) return;
     const n = hit.face.normal;
     const inside = hit.point.clone().addScaledVector(n, -0.5);
-    const prop = propAt(this.town.props, Math.floor(inside.x), Math.floor(inside.y), Math.floor(inside.z));
+    const bx = Math.floor(inside.x);
+    const by = Math.floor(inside.y);
+    const bz = Math.floor(inside.z);
+    const prop = propAt(this.town.props, bx, by, bz);
     this.pendingTalk = null;
     this.pendingProp = null;
+    this.pendingActivity = null;
+    const activityHost = this.town.buildings.find((b) =>
+      b.activity?.anchors.some((a) => a.x === bx && a.y === by && a.z === bz),
+    );
+    if (activityHost?.activity) {
+      if (this.nearActivity(activityHost)) this.openActivity(activityHost.activity.id);
+      else {
+        const spot = this.standSpotNear(activityHost.activity.anchors, activityHost);
+        if (spot) {
+          this.pendingActivity = activityHost;
+          this.walkTo(spot);
+        }
+      }
+      return;
+    }
     if (prop) {
       if (this.canReachProp(prop)) this.openVocab(prop);
       else {
@@ -439,6 +457,7 @@ export class TownGame {
     if (dx && dz && (!this.grid.isWalkable(x + dx, z) || !this.grid.isWalkable(x, z + dz))) return;
     this.pendingTalk = null;
     this.pendingProp = null;
+    this.pendingActivity = null;
     this.path = [{ x: x + dx, y: z + dz }];
   }
 
@@ -490,11 +509,22 @@ export class TownGame {
 
   /** Standable cell next to the prop, inside its building, closest to the player. */
   private standSpotFor(prop: PropSpec): Cell | null {
-    const building = this.town.buildings.find((b) => b.id === prop.buildingId);
+    return this.standSpotNear(prop.blocks, this.town.buildings.find((b) => b.id === prop.buildingId));
+  }
+
+  /** Close enough to a building activity's anchor blocks (e.g. the CD shelves). */
+  private nearActivity(building: BuildingSpec): boolean {
+    const anchors = building.activity?.anchors ?? [];
+    if (this.currentBuilding()?.id !== building.id) return false;
+    const p = this.player.root.position;
+    return anchors.some((a) => Math.hypot(a.x + 0.5 - p.x, a.z + 0.5 - p.z) <= PROP_RANGE);
+  }
+
+  private standSpotNear(blocks: readonly { x: number; z: number }[], building: BuildingSpec | undefined): Cell | null {
     const p = this.player.root.position;
     let best: Cell | null = null;
     let bestDist = Infinity;
-    for (const b of prop.blocks) {
+    for (const b of blocks) {
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
         const x = b.x + dx;
         const z = b.z + dz;
@@ -629,6 +659,11 @@ export class TownGame {
     if (this.pendingProp && this.path.length === 0 && this.canReachProp(this.pendingProp)) {
       this.openVocab(this.pendingProp);
     }
+    if (this.pendingActivity?.activity && this.path.length === 0 && this.nearActivity(this.pendingActivity)) {
+      const id = this.pendingActivity.activity.id;
+      this.pendingActivity = null;
+      this.openActivity(id);
+    }
 
     this.focus.set(this.player.root.position.x, STAND_Y + 0.6, this.player.root.position.z);
     this.rig.update(dt, this.focus, this.host.clientWidth, this.host.clientHeight);
@@ -677,7 +712,7 @@ export class TownGame {
       if (d <= TALK_RANGE && (!nearest || d < this.distanceTo(nearest))) nearest = npc;
     }
     if (nearest) this.interaction = { kind: "npc", npc: nearest };
-    else if (inside?.activity) this.interaction = { kind: "activity", building: inside };
+    else if (inside?.activity && this.nearActivity(inside)) this.interaction = { kind: "activity", building: inside };
     else if (inside?.portal) this.interaction = { kind: "portal", building: inside };
     else this.interaction = null;
 
@@ -717,7 +752,9 @@ export class TownGame {
     if (it && showPrompt) {
       this.prompt.textContent = it.kind === "npc"
         ? `E · ${it.npc.spec.name} ile konuş`
-        : `E · ${it.building.activity?.label ?? it.building.portal?.label ?? "Gir"}`;
+        : it.building.activity
+          ? `${it.building.activity.key} · ${it.building.activity.label}`
+          : `E · ${it.building.portal?.label ?? "Gir"}`;
     }
   }
 

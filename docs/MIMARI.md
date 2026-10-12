@@ -47,7 +47,7 @@ Praglish, İngilizce öğrenmeyi bir kasabada yaşamaya dönüştüren bir oyund
 | ✓ | Kafe için sahte AI cevabı (`USE_MOCK_AI=true` iken Leo da cevap verir) | 12.10.2026 | `api/services/ai_client.py` |
 | ✓ | Spell Book (MVP): ham kelime olayları (`word_events`), roleApp 4.2 formülüyle zorlanma puanı ve durum, `GET /api/spellbook/{user_id}`, kasabada "Büyü Kitabı" çekmecesi (`B`), süzgeçler | 12.10.2026 | `api/services/spell_book.py`, `word_events.py`, `routes/spellbook.py`, `SpellBookPanel.ts` |
 | ✓ | Kırmızı kelime enjeksiyonu (MVP): API her turda en fazla 2 kırmızı/sarı kelime seçer (günlük kota: kelime başı 3 kez, en fazla 2 mekân), AI servisi NPC'ye "uyuyorsa kullan" der, kullanılan kelime `passive_encounter` olarak yazılır ve panelde vurgulanır | 12.10.2026 | `spell_book.py` (`select_focus_words`, `find_used_words`), `word_events.py`, `routes/turn.py`, `ai/modules/npc.py`, `DialoguePanel.ts` |
-| ✓ | Dublaj Stüdyosu kasabaya taşındı: binaya girip `E` → aynı ekranlar tam ekran katmanda açılır (Phaser'sız). Phaser menüsündeki kart `index.html?open=dub`'a yönlendirir. İlerleme (localStorage) korunur | 12.10.2026 | `src/dub/DubStudio.ts`, `src/dub/dub.css`, `townMap.ts` (`activity`), `TownGame.ts` |
+| ✓ | Dublaj kasabaya taşındı ve **Kaset & CD dükkânı** oldu: rafların önünde `K` → kapaklar raftaki CD'ler gibi dizilir (isimler `/api/dub/scripts`'ten), `←/→` gez, `Boşluk` sahneyi seç, karakter seç, `Boşluk` → kayıt stüdyosu. `Esc` stüdyodan rafa, raftan kasabaya döner. Phaser'sız; ilerleme (localStorage) korunur | 12.10.2026 | `src/dub/DubStudio.ts`, `dub.css`, `townMap.ts` (`activity.anchors`, `CD_SHELF` bloğu), `TownGame.ts` |
 | ✓ | Sahte API (`npm run dev:mock-api`): gerçek kelime listeleri, ilerleme ve Spell Book uçları | 12.10.2026 | `game/scripts/mock-api.mjs` |
 | ✓ | Kesit yüksekliği 3'e indirildi (duvar dibindeki eşyalar görünür); kapalı panelin klavyeyi yutması düzeltildi | 12.10.2026 | `townMap.ts`, `*Panel.ts`, `town.css` |
 | ✓ | roleApp belgesi Sürüm 4'e güncellendi | 12.10.2026 | `docs/roleApp.md` |
@@ -109,7 +109,7 @@ Kural: istemci oyun kararı vermez (değerlendirme, ödül, senaryo durumu backe
 | `SpellBookPanel.ts` | Büyü Kitabı çekmecesi (`/api/spellbook/*`) | Hayır (DOM) | Tarayıcıda denendi |
 | `TownGame.ts` | Her şeyi birleştiren oyun döngüsü | Evet | Hayır |
 | `main.ts`, `town.css` | Giriş noktası ve HUD stilleri | — | — |
-| `../dub/DubStudio.ts`, `dub.css` | Dublaj Stüdyosu (eski `DubScene`), tam ekran katman; `/api/dub/*`, `/api/speech/tts` | Hayır (DOM) | Tarayıcıda denendi |
+| `../dub/DubStudio.ts`, `dub.css` | Kaset & CD dükkânı: CD rafı seçici + kayıt stüdyosu (eski `DubScene`), tam ekran katman; `/api/dub/*`, `/api/speech/tts` | Hayır (DOM) | Tarayıcıda denendi |
 
 Paylaşılan: `engine/PathFinder.ts` (A*), `services/PraglishApiClient.ts` (API istemcisi), `services/RoleplayMemory.ts` (mekân başına konuşma geçmişi).
 
@@ -252,7 +252,7 @@ npm test                         # vitest (kasaba testleri dahil)
 npm run typecheck
 ```
 
-Kontroller: dokun/tıkla = yürü · `E` / `Enter` = konuş / gir · `F` = kelime nesnesi · `B` = Büyü Kitabı · `Q` / `R` = kamerayı döndür · tekerlek, `+` / `-` = zoom · `WASD` / oklar = adım · `Esc` = paneli kapat.
+Kontroller: dokun/tıkla = yürü · `E` / `Enter` = konuş / gir · `F` = kelime nesnesi · `K` = CD rafı (film seç) · `B` = Büyü Kitabı · `Q` / `R` = kamerayı döndür · tekerlek, `+` / `-` = zoom · `WASD` / oklar = adım · `Esc` = paneli kapat.
 
 ---
 

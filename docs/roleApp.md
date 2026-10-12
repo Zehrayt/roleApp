@@ -2119,7 +2119,7 @@ Konuşma akışı: oyuncu menzile girer → "E · X ile konuş" istemi (dokunara
 
 - Ortografik izometrik kamera (yükselim 35,26°), 90° adımlı dönme (Q / R ya da düğmeler), zoom 7–30 blok yüksekliği (tekerlek, +/- ya da düğmeler). Perspektif modu isteğe bağlı.
 - Hareket: dokun/tıkla-git (A*) birincil. Web'de WASD/oklar kamera yönüne göre bir hücre adım atar. NPC'ye dokunmak yanına yürür ve konuşmayı açar.
-- Etkileşim: `E` / `Enter` ya da ekrandaki istem düğmesi (NPC, portal); `F` ya da yeşil düğme (kelime nesnesi). `Esc` paneli kapatır. Odaklanan nesnenin çevresinde çerçeve çizilir (tamamlanmışsa yeşil).
+- Etkileşim: `E` / `Enter` ya da ekrandaki istem düğmesi (NPC, portal); `F` ya da yeşil düğme (kelime nesnesi); `K` (Kaset & CD dükkânında rafın önünde: film seçenekleri). `Esc` paneli kapatır. Odaklanan nesnenin çevresinde çerçeve çizilir (tamamlanmışsa yeşil).
 - Konuşma paneli açıkken kamera düğmeleri gizlenir ve klavye hareketi durur.
 - Erişilebilirlik: tüm metin DOM'dadır (canvas yalnızca görsel). Panel `aria-live` ile okunur. `prefers-reduced-motion` açıkken kamera dönüşü anlıktır. Odak halkası görünürdür.
 
@@ -2135,7 +2135,7 @@ Konuşma akışı: oyuncu menzile girer → "E · X ile konuş" istemi (dokunara
 | 1 | Spell Book: anlama kontrolü, embedding ile bağlam uygunluğu, SRS (4.4), `mastered` | Yapılacak |
 | 1 | Harita JSON'a taşınır (33.4), editör kararı | Yapılacak |
 | 1 | Mobil: Capacitor sarmalayıcı, dokunmatik zoom (iki parmak), performans ölçümü | Yapılacak |
-| 2 | Dublaj Stüdyosu kasabaya taşınır | Yapıldı (12 Ekim 2026): stüdyo binasında tam ekran katman (`src/dub/`) |
+| 2 | Dublaj kasabaya taşınır | Yapıldı (12 Ekim 2026): Kaset & CD dükkânı; raf önünde `K`, CD kapaklarından sahne seçimi, ardından kayıt stüdyosu (`src/dub/`) |
 | 2 | Gelişim Defteri kasabaya taşınır, Phaser kaldırılır | Yapılacak |
 | 2 | NPC duygu yüzleri, gün döngüsü (3.1), NPC'lerin saatlere göre yer değiştirmesi | Yapılacak |
 | 3 | Agentic NPC'ler (Bölüm 7, 28): NPC'lerin LLM kararıyla yürümesi ve birbirleriyle konuşması | Yapılacak |
