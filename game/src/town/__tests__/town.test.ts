@@ -1,8 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { findPath, type PathfindingGrid } from "../../engine/PathFinder";
 import { Block } from "../blocks";
 import { buildMeshData } from "../mesher";
-import { buildTown, GROUND_Y, isInsideBuilding, isUpperBlock } from "../townMap";
+import { buildTown, GROUND_Y, isInsideBuilding, isUpperBlock, propAt } from "../townMap";
 import { VoxelWorld } from "../VoxelWorld";
 
 const everywhere = () => true;
@@ -42,11 +43,12 @@ describe("mesher", () => {
     expect(buildMeshData(w, everywhere).faceCount).toBe(10);
   });
 
-  it("keeps faces behind glass", () => {
+  it("keeps the opaque face behind glass", () => {
     const w = new VoxelWorld(3, 3, 3);
     w.set(0, 1, 1, Block.BRICK);
     w.set(1, 1, 1, Block.GLASS);
-    expect(buildMeshData(w, everywhere).faceCount).toBe(12);
+    // brick keeps all 6 faces (seen through glass); glass drops the face pressed against brick
+    expect(buildMeshData(w, everywhere).faceCount).toBe(11);
   });
 
   it("treats blocks outside the region as air so cut-away edges stay closed", () => {
@@ -124,5 +126,38 @@ describe("town map", () => {
     }
     const base = buildMeshData(world, (x, y, z) => upperOwners(x, y, z) === 0);
     expect(base.faceCount).toBeGreaterThan(1000);
+  });
+
+  it("builds every vocabulary prop from real blocks inside its building", () => {
+    for (const prop of town.props) {
+      const building = town.buildings.find((b) => b.id === prop.buildingId);
+      expect(building, prop.id).toBeDefined();
+      for (const b of prop.blocks) {
+        expect(world.get(b.x, b.y, b.z) !== Block.AIR, `${prop.id} block ${b.x},${b.y},${b.z}`).toBe(true);
+        if (building) expect(isInsideBuilding(building, b.x, b.z), prop.id).toBe(true);
+        expect(propAt(town.props, b.x, b.y, b.z)?.id).toBe(prop.id);
+      }
+    }
+  });
+
+  it("can stand next to every vocabulary prop", () => {
+    for (const prop of town.props) {
+      const reachable = prop.blocks.some((b) =>
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => {
+          const x = b.x + (dx ?? 0);
+          const z = b.z + (dz ?? 0);
+          return grid.isWalkable(x, z) && findPath(grid, spawn, { x, y: z }) !== null;
+        }),
+      );
+      expect(reachable, prop.id).toBe(true);
+    }
+  });
+
+  it("uses concepts that exist in the backend vocabulary files", () => {
+    for (const prop of town.props) {
+      const url = new URL(`../../../../api/game_data/vocabulary/${prop.location}.json`, import.meta.url);
+      const vocab = JSON.parse(readFileSync(url, "utf-8")) as { concepts: Array<{ concept: string }> };
+      expect(vocab.concepts.some((c) => c.concept === prop.concept), `${prop.location}/${prop.concept}`).toBe(true);
+    }
   });
 });

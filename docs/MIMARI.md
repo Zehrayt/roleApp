@@ -42,7 +42,10 @@ Praglish, İngilizce öğrenmeyi bir kasabada yaşamaya dönüştüren bir oyund
 | ✓ | NPC cevabı başının üstünde balonla görünür | 12.10.2026 | `TownGame.ts` |
 | ✓ | Kafe senaryosu etkin, Leo AI profili, barista TTS sesi | 12.10.2026 | `ai/main.py`, `api/game_data/scenarios/cafe.json`, `PraglishApiClient.ts` |
 | ✓ | İki sayfa: kasaba (`index.html`) + Phaser modları (`studio.html?scene=`), portal ve geri dönüş bağlantısı | 12.10.2026 | `game/`, `src/main.ts`, `vite.config.ts` |
-| ✓ | Birim testleri: dünya, mesher, harita erişilebilirliği, NPC/senaryo eşleşmesi (12 test) | 12.10.2026 | `src/town/__tests__/town.test.ts` |
+| ✓ | Birim testleri: dünya, mesher, harita erişilebilirliği, NPC/senaryo eşleşmesi, kelime nesneleri (15 test) | 12.10.2026 | `src/town/__tests__/town.test.ts` |
+| ✓ | Kelime nesneleri: 9 nesneye dokun / `F` → "Bu İngilizcede ne?" paneli, Türkçe ipucu, jeton, ilerleme; vurgulama çerçevesi | 12.10.2026 | `VocabPanel.ts`, `townMap.ts` (`props`), `api/game_data/vocabulary/*.json` |
+| ✓ | Kafe için sahte AI cevabı (`USE_MOCK_AI=true` iken Leo da cevap verir) | 12.10.2026 | `api/services/ai_client.py` |
+| ✓ | Kesit yüksekliği 3'e indirildi (duvar dibindeki eşyalar görünür); kapalı panelin klavyeyi yutması düzeltildi | 12.10.2026 | `townMap.ts`, `*Panel.ts`, `town.css` |
 | ✓ | roleApp belgesi Sürüm 4'e güncellendi | 12.10.2026 | `docs/roleApp.md` |
 
 ### 2.2 Yapılacaklar
@@ -53,7 +56,6 @@ Praglish, İngilizce öğrenmeyi bir kasabada yaşamaya dönüştüren bir oyund
 | --- | --- | --- | --- |
 | ☐ | `cd game && npm install` → `package-lock.json`'u commitle (three eklendi) | 0 | Bu yapılmadan Docker'daki `npm ci` hata verir |
 | ☐ | Docker ile uçtan uca deneme: gerçek AI anahtarıyla üç NPC'yle konuşma | 0 | |
-| ☐ | Kelime nesneleri: kasabadaki nesneye dokun → "Bu İngilizcede ne?" paneli (`/api/vocabulary/*`) | 1 | Eski RoomScene'deki akış taşınır |
 | ☐ | Spell Book paneli kasabada | 1 | roleApp 4 |
 | ☐ | Harita JSON'a taşınır, editör kararı (MagicaVoxel içe aktarma mı, oyun içi editör mü) | 1 | roleApp 33.4 |
 | ☐ | Mobil: Capacitor, iki parmakla zoom, orta segment telefonda FPS ölçümü | 1 | roleApp 33.7, 36 |
@@ -99,6 +101,7 @@ Kural: istemci oyun kararı vermez (değerlendirme, ödül, senaryo durumu backe
 | `BlockCharacter.ts` | Kutu karakter, animasyon | Evet | Hayır |
 | `CameraRig.ts` | Kamera modları, dönme, zoom, takip | Evet | Hayır |
 | `DialoguePanel.ts` | NPC konuşma paneli ve backend çağrıları | Hayır (DOM) | Hayır |
+| `VocabPanel.ts` | Kelime nesnesi paneli (`/api/vocabulary/*`) | Hayır (DOM) | Tarayıcıda denendi |
 | `TownGame.ts` | Her şeyi birleştiren oyun döngüsü | Evet | Hayır |
 | `main.ts`, `town.css` | Giriş noktası ve HUD stilleri | — | — |
 
@@ -170,7 +173,7 @@ Bir NPC'nin çalışması için dört yerin uyuşması gerekir: `townMap.ts` kay
 
 ### 6.3 Blok dünya
 
-1 blok = 1 m. Zemin y = 1, karakter y = 2'de durur ve iki boş blok ister. Kesit eşiği y ≥ 4. Ayrıntı: roleApp 33.
+1 blok = 1 m. Zemin y = 1, karakter y = 2'de durur ve iki boş blok ister. Kesit eşiği y ≥ 3. Kelime nesneleri (`props`) blok listesi + `location` + `concept` taşır; kavram ilgili kelime dosyasında olmak zorundadır (test kontrol eder). Ayrıntı: roleApp 33.
 
 ### 6.4 Sayfalar arası bağlantı
 
@@ -210,7 +213,7 @@ npm test                         # vitest (kasaba testleri dahil)
 npm run typecheck
 ```
 
-Kontroller: dokun/tıkla = yürü · `E` / `Enter` = konuş / gir · `Q` / `R` = kamerayı döndür · tekerlek, `+` / `-` = zoom · `WASD` / oklar = adım · `Esc` = paneli kapat.
+Kontroller: dokun/tıkla = yürü · `E` / `Enter` = konuş / gir · `F` = kelime nesnesi · `Q` / `R` = kamerayı döndür · tekerlek, `+` / `-` = zoom · `WASD` / oklar = adım · `Esc` = paneli kapat.
 
 ---
 
@@ -234,7 +237,14 @@ Kontroller: dokun/tıkla = yürü · `E` / `Enter` = konuş / gir · `Q` / `R` =
 - [ ] Testteki `location/npc_role` listesini güncelle
 - [ ] 6.2'deki tabloya satır ekle
 
-### 9.3 Bir Phaser modunu kasabaya taşıma
+### 9.3 Yeni kelime nesnesi ekleme
+
+- [ ] Nesneyi bloklarla kur (`townMap.ts`, bina içinde)
+- [ ] `api/game_data/vocabulary/<location>.json`'da kavram yoksa ekle (kelime + eş anlamlılar, `reward_coins`)
+- [ ] `townMap.ts` → `props` dizisine kayıt: `id`, `buildingId`, `location`, `concept`, `nameTr`, `blocks`
+- [ ] Testler: bloklar dolu ve binada mı, yanına yürünebiliyor mu, kavram kelime dosyasında var mı
+
+### 9.4 Bir Phaser modunu kasabaya taşıma
 
 - [ ] Modun mantığını Phaser'dan bağımsız bir modüle ayır (DOM panel + servis çağrıları)
 - [ ] Kasabada karşılık gelen binayı ya da nesneyi ekle, portalı kaldır

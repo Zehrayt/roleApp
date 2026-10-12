@@ -1,6 +1,6 @@
 import {
-  PraglishApiClient,
   ROLEPLAY_TTS_PROFILES,
+  type PraglishApiClient,
   type TurnResponse,
 } from "../services/PraglishApiClient";
 import { getRememberedDialogue, rememberDialogueMessage } from "../services/RoleplayMemory";
@@ -38,9 +38,14 @@ export class DialoguePanel {
   private recording = false;
   private audio: HTMLAudioElement | null = null;
 
-  constructor(npc: NpcSpec, container: HTMLElement, private readonly events: DialoguePanelEvents) {
+  constructor(
+    npc: NpcSpec,
+    api: PraglishApiClient,
+    container: HTMLElement,
+    private readonly events: DialoguePanelEvents,
+  ) {
     this.npc = npc;
-    this.api = new PraglishApiClient({ location: npc.location, npcRole: npc.npcRole, npcName: npc.name });
+    this.api = api;
 
     this.root = document.createElement("section");
     this.root.className = "town-dialogue";
@@ -86,7 +91,9 @@ export class DialoguePanel {
       void this.submitTurn();
     });
     this.root.addEventListener("keydown", (event) => {
+      if (!this.isOpen) return;
       if (event.key === "Escape") this.close();
+      // Keep typing ("e", "w", …) from moving the player or opening other panels.
       event.stopPropagation();
     });
 
@@ -114,8 +121,9 @@ export class DialoguePanel {
     if (!this.isOpen) return;
     if (this.recording) this.stopRecording();
     this.audio?.pause();
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && this.root.contains(focused)) focused.blur();
     this.root.hidden = true;
-    this.input.blur();
     this.events.onClose();
   }
 

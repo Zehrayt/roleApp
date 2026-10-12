@@ -47,6 +47,28 @@ export interface NpcSpec {
   look: CharacterLook;
 }
 
+export interface BlockPos {
+  x: number;
+  y: number;
+  z: number;
+}
+
+/**
+ * An object made of blocks that teaches a word. Tapping it (or pressing F next
+ * to it) opens "What's this in English?"; answers go to /api/vocabulary.
+ */
+export interface PropSpec {
+  id: string;
+  buildingId: string;
+  /** Vocabulary location: api/game_data/vocabulary/<location>.json */
+  location: string;
+  /** Concept id inside that vocabulary file. */
+  concept: string;
+  /** Turkish name shown as a hint. */
+  nameTr: string;
+  blocks: BlockPos[];
+}
+
 export interface Portal {
   /** Text on the interaction prompt, e.g. "Stüdyoya gir". */
   label: string;
@@ -71,7 +93,14 @@ export interface TownDefinition {
   world: VoxelWorld;
   buildings: BuildingSpec[];
   npcs: NpcSpec[];
+  props: PropSpec[];
   spawn: Cell;
+}
+
+function blockRange(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): BlockPos[] {
+  const out: BlockPos[] = [];
+  for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push({ x, y, z });
+  return out;
 }
 
 interface BuildingPlan {
@@ -126,7 +155,7 @@ function placeBuilding(world: VoxelWorld, plan: BuildingPlan): BuildingSpec {
     x1,
     z1,
     door: plan.door,
-    cutY: 4,
+    cutY: 3,
   };
   if (plan.portal) spec.portal = plan.portal;
   return spec;
@@ -147,6 +176,11 @@ function placeTree(world: VoxelWorld, x: number, z: number, rng: () => number): 
   for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
     world.set(x + dx, 8, z + dz, Block.LEAVES);
   }
+}
+
+/** Finds the prop that owns the block at (x, y, z), if any. */
+export function propAt(props: readonly PropSpec[], x: number, y: number, z: number): PropSpec | undefined {
+  return props.find((p) => p.blocks.some((b) => b.x === x && b.y === y && b.z === z));
 }
 
 export function isInsideBuilding(b: BuildingSpec, x: number, z: number): boolean {
@@ -187,6 +221,7 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.fill(6, 2, 7, 11, 2, 7, Block.DARK); // counter
   world.fill(11, 2, 5, 12, 3, 5, Block.BRICK); // oven
   world.fill(5, 2, 5, 6, 2, 5, Block.PLANKS); // flour crates
+  world.set(12, 2, 10, Block.LEAVES); // potted plant
   world.fill(8, GROUND_Y, 12, 8, GROUND_Y, 18, Block.COBBLE);
 
   // Kütüphane — Smart Reading Scrolls (library / librarian)
@@ -198,7 +233,8 @@ export function buildTown(seed = 20261012): TownDefinition {
     windows: [{ x: 27, z: 11 }, { x: 28, z: 11 }, { x: 33, z: 11 }, { x: 34, z: 11 }, { x: 26, z: 7 }, { x: 26, z: 8 }],
   }));
   world.fill(27, 2, 5, 34, 4, 5, Block.SHELF);
-  world.fill(28, 2, 8, 29, 2, 8, Block.DARK);
+  world.fill(28, 2, 8, 29, 2, 8, Block.DARK); // reading table
+  world.set(28, 2, 9, Block.PLANKS); // chair
   world.fill(33, 2, 8, 33, 2, 9, Block.SHELF);
   world.fill(30, GROUND_Y, 12, 30, GROUND_Y, 18, Block.COBBLE);
 
@@ -213,6 +249,8 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.fill(10, 2, 31, 12, 2, 31, Block.DARK);
   world.set(6, 2, 29, Block.LOG);
   world.set(6, 2, 31, Block.LOG);
+  world.set(5, 2, 29, Block.PLANKS); // chairs
+  world.set(5, 2, 31, Block.PLANKS);
   world.fill(8, GROUND_Y, 21, 8, GROUND_Y, 25, Block.COBBLE);
 
   // Dublaj Stüdyosu — existing Phaser "Listen & Repeat" mode, reached through a portal.
@@ -256,5 +294,17 @@ export function buildTown(seed = 20261012): TownDefinition {
     },
   ];
 
-  return { world, buildings, npcs, spawn: { x: 8, z: 15 } };
+  const props: PropSpec[] = [
+    { id: "bakery-counter", buildingId: "bakery", location: "bakery", concept: "counter", nameTr: "tezgâh", blocks: blockRange(6, 2, 7, 11, 2, 7) },
+    { id: "bakery-oven", buildingId: "bakery", location: "bakery", concept: "oven", nameTr: "fırın (ocak)", blocks: blockRange(11, 2, 5, 12, 3, 5) },
+    { id: "bakery-plant", buildingId: "bakery", location: "bakery", concept: "plant", nameTr: "saksı bitkisi", blocks: [{ x: 12, y: 2, z: 10 }] },
+    { id: "library-bookcase", buildingId: "library", location: "library", concept: "bookcase", nameTr: "kitaplık", blocks: blockRange(27, 2, 5, 34, 4, 5) },
+    { id: "library-table", buildingId: "library", location: "library", concept: "table", nameTr: "masa", blocks: blockRange(28, 2, 8, 29, 2, 8) },
+    { id: "library-chair", buildingId: "library", location: "library", concept: "chair", nameTr: "sandalye", blocks: [{ x: 28, y: 2, z: 9 }] },
+    { id: "cafe-table", buildingId: "cafe", location: "cafe", concept: "table", nameTr: "masa", blocks: [{ x: 6, y: 2, z: 29 }, { x: 6, y: 2, z: 31 }] },
+    { id: "cafe-chair", buildingId: "cafe", location: "cafe", concept: "chair", nameTr: "sandalye", blocks: [{ x: 5, y: 2, z: 29 }, { x: 5, y: 2, z: 31 }] },
+    { id: "cafe-counter", buildingId: "cafe", location: "cafe", concept: "counter", nameTr: "tezgâh", blocks: blockRange(10, 2, 31, 12, 2, 31) },
+  ];
+
+  return { world, buildings, npcs, props, spawn: { x: 8, z: 15 } };
 }

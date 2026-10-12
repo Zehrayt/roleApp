@@ -1986,6 +1986,7 @@ Kasabadaki **portallar** (ör. Dublaj Stüdyosu binası) ve HUD bağlantıları 
 | `BlockCharacter.ts` | Kutu karakter modeli, yürüme/konuşma animasyonu | Var |
 | `CameraRig.ts` | Ortografik izometrik / perspektif kamera, 90° dönme, zoom, takip | Var |
 | `DialoguePanel.ts` | NPC konuşma paneli: oturum, tur, STT, TTS, ödül, geçmiş | Yok (DOM) |
+| `VocabPanel.ts` | "Bu İngilizcede ne?" kelime paneli: `/api/vocabulary/submit` ve `/progress` | Yok (DOM) |
 | `TownGame.ts` | Sahne kurulumu, girdi, yol bulma, etkileşim, kesit, etiket/balon, döngü | Var |
 
 Kural: dünya mantığı (blok, harita, mesh verisi, yol bulma) three.js'e bağlı olmaz. Böylece birim testleri tarayıcısız çalışır ve aynı mantık ileride sunucuya (World State, Bölüm 10) taşınabilir. Mevcut `engine/PathFinder.ts` (A*) aynen kullanılır.
@@ -2038,7 +2039,7 @@ Bugün kasaba `townMap.ts` içinde kodla kurulur (`buildTown`). Mekân sayısı 
   "layers": "base64(RLE(uint8[]))",
   "buildings": [
     { "id": "bakery", "name": "Fırın", "nameEn": "Bakery", "bounds": [4, 4, 13, 11],
-      "door": [8, 11], "cutY": 4, "portal": null }
+      "door": [8, 11], "cutY": 3, "portal": null }
   ],
   "npcs": [
     { "id": "maya", "location": "bakery", "npcRole": "baker", "voice": "cafeNpc",
@@ -2053,7 +2054,7 @@ Harita düzenleme için iki yol açıktır: MagicaVoxel/Goxel'den içe aktarma (
 ### 33.5 Mesh üretimi ve kesit görünüm
 
 - Görünmeyen yüzler elenir. Komşu saydam ve farklı türdeyse yüz korunur.
-- Dünya iki tür bölgeye ayrılır: **taban** (zemin, duvarların alt iki bloğu, dış dünya) ve her bina için **üst** (y ≥ `cutY` = 4, çatı saçağı dahil). Her bölge tek mesh, tek çizim çağrısıdır.
+- Dünya iki tür bölgeye ayrılır: **taban** (zemin, duvarların alt bloğu, dış dünya) ve her bina için **üst** (y ≥ `cutY` = 3, çatı saçağı dahil). Kesitte duvarın yalnızca bir bloğu kalır, böylece duvar dibindeki eşyalar da görünür. Her bölge tek mesh, tek çizim çağrısıdır.
 - Oyuncu binanın ayak izine girince o binanın üst mesh'i gizlenir. Bölge dışındaki bloklar hava sayıldığı için kesik kenarlar kapalı görünür.
 - Blok değişirse yalnızca ilgili bölge yeniden üretilir. Hub 64 × 64'e çıkınca taban 16 × 16'lık bölgelere bölünür.
 
@@ -2108,13 +2109,13 @@ Konuşma akışı: oyuncu menzile girer → "E · X ile konuş" istemi (dokunara
 - **Codex talimatı (şablon):** "16×16 px seamless tile, top-down texture for a block game, flat lighting, no shadows, palette: <palette.png>, binary alpha, no text, original design (not Minecraft)." Her doku için malzeme ve 3 renk tonu verilir.
 - **Doğrulama:** boyut 16 × 16, palet dışı renk ≤ %2, yarı saydam piksel yok, kenar döşeme farkı eşiği. Script `tools/validate_textures.py` (Faz 1). Bölüm 25.2–25.5 ve 29.2'deki sprite boru hattı yalnızca arayüz ikonları ve NPC portreleri için geçerli kalır.
 - **Karakterler:** renk paleti + 8 × 8 yüz dokusu. Duygu başına bir yüz.
-- **Kelime bağlantısı (25.6 korunur):** etkileşimli nesneler blok grubu olarak işaretlenir ve `concept_id` taşır (ör. fırındaki tezgâh = `counter`). Tıklanınca kelime paneli açılır (Faz 1).
+- **Kelime bağlantısı (25.6 korunur):** etkileşimli nesneler blok grubu olarak işaretlenir ve `concept_id` taşır (ör. fırındaki tezgâh = `counter`). Dokunulunca (ya da yanındayken `F`) kelime paneli açılır; Türkçe ipucu gösterilir, doğru kelime ve eş anlamlıları jeton kazandırır. **Yapıldı (12 Ekim 2026):** 9 nesne (fırın: tezgâh, fırın/ocak, saksı bitkisi; kütüphane: kitaplık, masa, sandalye; kafe: masa, sandalye, tezgâh). Nesne tanımı `townMap.ts` → `props`; kavramlar `api/game_data/vocabulary/*.json` ile birim testinde eşleştirilir.
 
 ## 36. Kamera, kontrol ve erişilebilirlik (24.3 ve 3.1 güncellemesi)
 
 - Ortografik izometrik kamera (yükselim 35,26°), 90° adımlı dönme (Q / R ya da düğmeler), zoom 7–30 blok yüksekliği (tekerlek, +/- ya da düğmeler). Perspektif modu isteğe bağlı.
 - Hareket: dokun/tıkla-git (A*) birincil. Web'de WASD/oklar kamera yönüne göre bir hücre adım atar. NPC'ye dokunmak yanına yürür ve konuşmayı açar.
-- Etkileşim: `E` / `Enter` ya da ekrandaki istem düğmesi. `Esc` paneli kapatır.
+- Etkileşim: `E` / `Enter` ya da ekrandaki istem düğmesi (NPC, portal); `F` ya da yeşil düğme (kelime nesnesi). `Esc` paneli kapatır. Odaklanan nesnenin çevresinde çerçeve çizilir (tamamlanmışsa yeşil).
 - Konuşma paneli açıkken kamera düğmeleri gizlenir ve klavye hareketi durur.
 - Erişilebilirlik: tüm metin DOM'dadır (canvas yalnızca görsel). Panel `aria-live` ile okunur. `prefers-reduced-motion` açıkken kamera dönüşü anlıktır. Odak halkası görünürdür.
 
@@ -2124,7 +2125,8 @@ Konuşma akışı: oyuncu menzile girer → "E · X ile konuş" istemi (dokunara
 | --- | --- | --- |
 | 0 | Blok kasaba, kamera, kesit, yol bulma, 3 NPC'nin backend'e bağlanması, portal ile Phaser modlarına geçiş, birim testleri | Yapıldı (12 Ekim 2026) |
 | 0 | `package-lock.json` güncellemesi (`npm install`), Docker ile uçtan uca deneme | Yapılacak |
-| 1 | Kelime nesneleri (35, 25.6) ve Spell Book paneli kasabada | Yapılacak |
+| 1 | Kelime nesneleri (35, 25.6) | Yapıldı (12 Ekim 2026) |
+| 1 | Spell Book paneli kasabada | Yapılacak |
 | 1 | Harita JSON'a taşınır (33.4), editör kararı | Yapılacak |
 | 1 | Mobil: Capacitor sarmalayıcı, dokunmatik zoom (iki parmak), performans ölçümü | Yapılacak |
 | 2 | Dublaj Stüdyosu ve Gelişim Defteri kasabaya taşınır, Phaser kaldırılır | Yapılacak |

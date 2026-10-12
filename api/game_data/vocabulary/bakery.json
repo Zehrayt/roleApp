@@ -73,6 +73,14 @@
       "words": [
         {"word": "egg tart", "reward_coins": 10}
       ]
+    },
+    {
+      "concept": "oven",
+      "words": [
+        {"word": "oven", "reward_coins": 10},
+        {"word": "bread oven", "reward_coins": 10},
+        {"word": "stove", "reward_coins": 10}
+      ]
     }
   ]
 }

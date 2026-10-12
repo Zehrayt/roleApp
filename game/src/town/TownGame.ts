@@ -1,24 +1,31 @@
 import * as THREE from "three";
 import { findPath, type GridCell, type PathfindingGrid } from "../engine/PathFinder";
+import { PraglishApiClient } from "../services/PraglishApiClient";
 import { BlockCharacter } from "./BlockCharacter";
 import { CameraRig, type CameraMode } from "./CameraRig";
 import { DialoguePanel } from "./DialoguePanel";
 import { buildMeshData, type MeshData } from "./mesher";
 import { paintBlockAtlas } from "./textures";
+import { VocabPanel } from "./VocabPanel";
 import {
   buildTown,
   GROUND_Y,
   isInsideBuilding,
   isUpperBlock,
+  propAt,
   type BuildingSpec,
   type Cell,
   type NpcSpec,
+  type PropSpec,
   type TownDefinition,
 } from "./townMap";
 
 const PLAYER_SPEED = 4.2; // cells per second
 const TALK_RANGE = 2.6;
 const STAND_Y = GROUND_Y + 1;
+const PROP_RANGE = 1.7;
+const HIGHLIGHT = 0xf2b134;
+const HIGHLIGHT_DONE = 0x8ee89b;
 
 interface NpcRuntime {
   spec: NpcSpec;
@@ -63,6 +70,12 @@ export class TownGame {
   private readonly pointer = new THREE.Vector2();
   private readonly keys = new Set<string>();
   private readonly prompt: HTMLButtonElement;
+  private readonly vocabPrompt: HTMLButtonElement;
+  private readonly vocabPanel: VocabPanel;
+  private readonly apis = new Map<string, PraglishApiClient>();
+  private readonly propHighlights = new Map<string, THREE.Box3Helper>();
+  private readonly completedProps = new Set<string>();
+  private readonly progressLoaded = new Set<string>();
   private readonly stats: HTMLElement;
   private readonly tmp = new THREE.Vector3();
   private readonly focus = new THREE.Vector3();
@@ -75,7 +88,9 @@ export class TownGame {
   private segmentT = 0;
   private pendingTalk: NpcRuntime | null = null;
   private interaction: Interaction | null = null;
-  private activePanel: DialoguePanel | null = null;
+  private activePanel: DialoguePanel | VocabPanel | null = null;
+  private nearestProp: PropSpec | null = null;
+  private pendingProp: PropSpec | null = null;
   private pointerDown: { x: number; y: number } | null = null;
   private last = performance.now();
   private fpsTime = 0;
@@ -143,6 +158,17 @@ export class TownGame {
     // HUD
     for (const b of buildings) this.labels.push(this.createLabel(b));
     this.prompt = this.createHud();
+    this.vocabPrompt = this.mustQuery<HTMLButtonElement>(".town-prompt--vocab");
+    this.vocabPrompt.addEventListener("click", () => {
+      if (this.nearestProp) this.openVocab(this.nearestProp);
+    });
+    this.vocabPanel = new VocabPanel(host, {
+      onProgress: (prop, completed) => {
+        if (completed) this.completedProps.add(prop.id);
+      },
+      onClose: () => this.panelClosed(this.vocabPanel),
+    });
+    for (const prop of this.town.props) this.propHighlights.set(prop.id, this.createHighlight(prop));
     this.stats = this.mustQuery<HTMLElement>("[data-town-stats]");
 
     this.bindInput();
@@ -203,6 +229,23 @@ export class TownGame {
     return { el, anchor: new THREE.Vector3(b.door.x + 0.5 + dx, 6.2, b.door.z + 0.5 + dz) };
   }
 
+  private createHighlight(prop: PropSpec): THREE.Box3Helper {
+    const box = new THREE.Box3();
+    for (const b of prop.blocks) {
+      box.expandByPoint(new THREE.Vector3(b.x, b.y, b.z));
+      box.expandByPoint(new THREE.Vector3(b.x + 1, b.y + 1, b.z + 1));
+    }
+    box.expandByScalar(0.03);
+    const helper = new THREE.Box3Helper(box, new THREE.Color(HIGHLIGHT));
+    const material = helper.material as THREE.LineBasicMaterial;
+    material.depthTest = false;
+    material.transparent = true;
+    helper.renderOrder = 10;
+    helper.visible = false;
+    this.scene.add(helper);
+    return helper;
+  }
+
   private createHud(): HTMLButtonElement {
     const hud = document.createElement("div");
     hud.className = "town-hud";
@@ -225,7 +268,10 @@ export class TownGame {
         <button class="town-btn" data-act="mode-iso" aria-pressed="true">İzometrik</button>
         <button class="town-btn" data-act="mode-perspective" aria-pressed="false">Perspektif</button>
       </div>
-      <button class="town-prompt" type="button" hidden></button>`;
+      <div class="town-prompts">
+        <button class="town-prompt" type="button" hidden></button>
+        <button class="town-prompt town-prompt--vocab" type="button" hidden></button>
+      </div>`;
     this.host.appendChild(hud);
 
     hud.querySelectorAll<HTMLButtonElement>("[data-act]").forEach((btn) => {
@@ -282,6 +328,7 @@ export class TownGame {
       const k = e.key.toLowerCase();
       if (k === "escape") this.activePanel?.close();
       else if (k === "e" || k === "enter") this.interact();
+      else if (k === "f" && this.nearestProp) this.openVocab(this.nearestProp);
       else if (k === "q") this.rig.rotate(-1);
       else if (k === "r") this.rig.rotate(1);
       else if (k === "+" || k === "=") this.rig.zoomBy(-1);
@@ -321,9 +368,23 @@ export class TownGame {
     const hit = this.raycaster.intersectObjects(targets, false)[0];
     if (!hit || !hit.face) return;
     const n = hit.face.normal;
+    const inside = hit.point.clone().addScaledVector(n, -0.5);
+    const prop = propAt(this.town.props, Math.floor(inside.x), Math.floor(inside.y), Math.floor(inside.z));
+    this.pendingTalk = null;
+    this.pendingProp = null;
+    if (prop) {
+      if (this.canReachProp(prop)) this.openVocab(prop);
+      else {
+        const spot = this.standSpotFor(prop);
+        if (spot) {
+          this.pendingProp = prop;
+          this.walkTo(spot);
+        }
+      }
+      return;
+    }
     const p = hit.point.clone().addScaledVector(n, n.y > 0.5 ? -0.01 : 0.5);
     const target = this.nearestStandable(Math.floor(p.x), Math.floor(p.z));
-    this.pendingTalk = null;
     if (target) this.walkTo(target);
   }
 
@@ -356,6 +417,7 @@ export class TownGame {
     if (!this.grid.isWalkable(x + dx, z + dz)) return;
     if (dx && dz && (!this.grid.isWalkable(x + dx, z) || !this.grid.isWalkable(x, z + dz))) return;
     this.pendingTalk = null;
+    this.pendingProp = null;
     this.path = [{ x: x + dx, y: z + dz }];
   }
 
@@ -393,6 +455,82 @@ export class TownGame {
     return this.town.buildings.find((b) => isInsideBuilding(b, x, z));
   }
 
+  private propDistance(prop: PropSpec): number {
+    const p = this.player.root.position;
+    let best = Infinity;
+    for (const b of prop.blocks) best = Math.min(best, Math.hypot(b.x + 0.5 - p.x, b.z + 0.5 - p.z));
+    return best;
+  }
+
+  /** Close enough and in the same building (so props are never reached through walls). */
+  private canReachProp(prop: PropSpec): boolean {
+    return this.currentBuilding()?.id === prop.buildingId && this.propDistance(prop) <= PROP_RANGE;
+  }
+
+  /** Standable cell next to the prop, inside its building, closest to the player. */
+  private standSpotFor(prop: PropSpec): Cell | null {
+    const building = this.town.buildings.find((b) => b.id === prop.buildingId);
+    const p = this.player.root.position;
+    let best: Cell | null = null;
+    let bestDist = Infinity;
+    for (const b of prop.blocks) {
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const x = b.x + dx;
+        const z = b.z + dz;
+        if (!this.grid.isWalkable(x, z)) continue;
+        if (building && !isInsideBuilding(building, x, z)) continue;
+        const d = Math.hypot(x + 0.5 - p.x, z + 0.5 - p.z);
+        if (d < bestDist) {
+          bestDist = d;
+          best = { x, z };
+        }
+      }
+    }
+    return best;
+  }
+
+  private apiFor(location: string): PraglishApiClient | null {
+    const existing = this.apis.get(location);
+    if (existing) return existing;
+    const npc = this.town.npcs.find((n) => n.location === location);
+    if (!npc) return null;
+    const api = new PraglishApiClient({ location, npcRole: npc.npcRole, npcName: npc.name });
+    this.apis.set(location, api);
+    return api;
+  }
+
+  private panelClosed(panel: DialoguePanel | VocabPanel | null): void {
+    if (panel && this.activePanel === panel) {
+      this.activePanel = null;
+      this.host.classList.remove("is-talking");
+    }
+  }
+
+  private openVocab(prop: PropSpec): void {
+    this.pendingProp = null;
+    const api = this.apiFor(prop.location);
+    if (!api) return;
+    if (this.activePanel && this.activePanel !== this.vocabPanel) this.activePanel.close();
+    this.activePanel = this.vocabPanel;
+    this.host.classList.add("is-talking");
+    this.vocabPanel.open(prop, api);
+  }
+
+  private loadProgressFor(location: string): void {
+    if (this.progressLoaded.has(location)) return;
+    const api = this.apiFor(location);
+    if (!api) return;
+    this.progressLoaded.add(location);
+    void api.getVocabularyProgress()
+      .then((entries) => {
+        const done = new Set(entries.filter((e) => e.completed).map((e) => e.concept));
+        for (const prop of this.town.props) {
+          if (prop.location === location && done.has(prop.concept)) this.completedProps.add(prop.id);
+        }
+      })
+      .catch(() => this.progressLoaded.delete(location));
+  }
+
   private interact(): void {
     const it = this.interaction;
     if (!it) return;
@@ -402,20 +540,18 @@ export class TownGame {
 
   private openDialogue(npc: NpcRuntime): void {
     this.pendingTalk = null;
+    this.pendingProp = null;
+    const api = this.apiFor(npc.spec.location);
+    if (!api) return;
     if (this.activePanel && this.activePanel !== npc.panel) this.activePanel.close();
     if (!npc.panel) {
-      npc.panel = new DialoguePanel(npc.spec, this.host, {
+      npc.panel = new DialoguePanel(npc.spec, api, this.host, {
         onReply: (text, speaker, seconds) => {
           npc.bubbleText.textContent = speaker === "coach" ? `(Koç) ${text}` : text;
           npc.replyUntil = performance.now() + seconds * 1000;
           if (speaker === "npc") npc.character.talk(seconds, performance.now());
         },
-        onClose: () => {
-          if (this.activePanel === npc.panel) {
-            this.activePanel = null;
-            this.host.classList.remove("is-talking");
-          }
-        },
+        onClose: () => this.panelClosed(npc.panel),
       });
     }
     this.activePanel = npc.panel;
@@ -443,6 +579,9 @@ export class TownGame {
       npc.character.yaw = npc.near || npc.panel?.isOpen ? Math.atan2(dx, dz) : 0;
       npc.character.update(dt, false, now);
       if (npc.near && this.pendingTalk === npc) this.openDialogue(npc);
+    }
+    if (this.pendingProp && this.path.length === 0 && this.canReachProp(this.pendingProp)) {
+      this.openVocab(this.pendingProp);
     }
 
     this.focus.set(this.player.root.position.x, STAND_Y + 0.6, this.player.root.position.z);
@@ -494,6 +633,35 @@ export class TownGame {
     if (nearest) this.interaction = { kind: "npc", npc: nearest };
     else if (inside?.portal) this.interaction = { kind: "portal", building: inside };
     else this.interaction = null;
+
+    // Nearest vocabulary prop in the same building.
+    this.nearestProp = null;
+    if (inside) {
+      let bestDist = Infinity;
+      for (const prop of this.town.props) {
+        if (prop.buildingId !== inside.id) continue;
+        this.loadProgressFor(prop.location);
+        const d = this.propDistance(prop);
+        if (d <= PROP_RANGE && d < bestDist) {
+          bestDist = d;
+          this.nearestProp = prop;
+        }
+      }
+    }
+    for (const [id, helper] of this.propHighlights) {
+      const focused = id === this.nearestProp?.id || id === this.pendingProp?.id;
+      helper.visible = focused;
+      if (focused) {
+        (helper.material as THREE.LineBasicMaterial).color.setHex(this.completedProps.has(id) ? HIGHLIGHT_DONE : HIGHLIGHT);
+      }
+    }
+    const vocabTarget = this.nearestProp;
+    this.vocabPrompt.hidden = !vocabTarget || this.vocabPanel.isOpen;
+    if (vocabTarget) {
+      this.vocabPrompt.textContent = this.completedProps.has(vocabTarget.id)
+        ? "F · Bu ne? (tamamlandı)"
+        : "F · Bu İngilizcede ne?";
+    }
 
     const it = this.interaction;
     const showPrompt = it !== null && !(it.kind === "npc" && it.npc.panel?.isOpen);

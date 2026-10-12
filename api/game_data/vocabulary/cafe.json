@@ -27,6 +27,20 @@
       "words": [
         {"word": "spoon", "reward_coins": 10}
       ]
+    },
+    {
+      "concept": "table",
+      "words": [
+        {"word": "table", "reward_coins": 10},
+        {"word": "coffee table", "reward_coins": 10}
+      ]
+    },
+    {
+      "concept": "counter",
+      "words": [
+        {"word": "counter", "reward_coins": 10},
+        {"word": "bar", "reward_coins": 10}
+      ]
     }
   ]
 }
