@@ -12,6 +12,7 @@ export interface DialoguePanelEvents {
   /** A reply arrived; `seconds` is a rough reading/speaking time for the speech bubble. */
   onReply(text: string, speaker: DialogueSpeaker, seconds: number): void;
   onClose(): void;
+  onAcceptedTurn?(): void;
 }
 
 type MessageKind = "user" | "npc" | "feedback" | "reward" | "error";
@@ -162,6 +163,7 @@ export class DialoguePanel {
     if (result.rewards && (result.rewards.gained_xp > 0 || result.rewards.gained_coins > 0)) {
       this.append("ÖDÜL", `+${result.rewards.gained_xp} XP · +${result.rewards.gained_coins} jeton`, "reward");
     }
+    if (result.accepted) this.events.onAcceptedTurn?.();
     const seconds = Math.min(12, 2.5 + result.npc_response.split(/\s+/).length * 0.35);
     this.events.onReply(result.npc_response, coach ? "coach" : "npc", seconds);
     void this.speak(result.npc_response, coach);

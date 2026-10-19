@@ -1,27 +1,12 @@
-# Praglish Game Client
+# roleApp Game Client
 
-The Praglish game client has two pages:
+`index.html` first opens a three-card mode selector:
 
-- `index.html` - the block town (three.js). The player walks around a voxel
-  town with an isometric camera and talks to AI NPCs (Maya at the bakery, Lina
-  at the library, Leo at the cafe) through the Praglish API. Code lives in
-  `src/town/`. Architecture and roadmap: `../docs/MIMARI.md`.
-- `studio.html` - the older Phaser modes (progress book, menu, old rooms),
-  reachable from the town's top-right links. Open a mode directly with
-  `studio.html?scene=DashboardScene`.
+- **Roleplay:** Explore the block town and practice everyday English with Maya, Lina and Leo. Open directly with `?mode=roleplay`.
+- **Macera:** Open the same town with a four-step quest journal. Complete accepted NPC turns and a library vocabulary task in order to unlock the next quest. Progress is saved in this browser. This is the prologue; later combat chapters are not implemented yet. Open directly with `?mode=adventure`.
+- **Dub the Scene:** Open the Kaset & CD shop to record lines over a scene. Open directly with `?open=dub`.
 
-The dub studio ("Listen & Repeat") lives in the town as the Kaset & CD shop:
-walk up to a CD rack and press `K`, browse the cases with the arrow keys, press
-Space to pick a scene and a character, then record. `index.html?open=dub` opens
-the shop directly. Code: `src/dub/`.
-
-After pulling, run `npm install` once: the town adds the `three` dependency.
-
-The player character includes four-direction idle and walking animations. The
-sprite sheet was produced for this project using a CC0 sheet layout as a
-reference; attribution details are available in
-`public/assets/characters/SOURCE.md`.
-
+The town uses three.js and the Praglish API. The old Phaser page remains at `studio.html?scene=...` for deep links; opening `studio.html` without a scene now returns to mode selection. Mode artwork is original AI-generated block-world illustration.
 ## Run with Docker
 
 Docker is the recommended way to run the complete application. It does not
@@ -67,10 +52,9 @@ container with a configured provider key for real STT and TTS.
   the recording to `/api/speech/stt` and plays the NPC response from
   `/api/speech/tts`.
 - Press `Esc` to close a conversation or vocabulary panel.
-- Press `B` to move from the library to the bakery.
-- Press `L` to move from the bakery to the library.
-- Press `P` to open the progress dashboard.
-- Press `M` to return to the mode menu.
+- Press `B` to open the spell book and `P` to open the progress dashboard.
+- In Macera mode, press `G` to open the quest journal.
+- Use **Mod seçimi** in the town HUD to return to the opening cards.
 
 ## Validation
 
@@ -84,3 +68,5 @@ The Maya and Lina dialogue panels use the API session and turn flow. AI replies,
 corrections, and rewards appear in the same panel. Microphone input relies on the
 browser `getUserMedia` and `MediaRecorder` APIs and works only in a secure context,
 such as `http://localhost` or HTTPS.
+
+The player sprite sheet was produced for this project using a CC0 sheet layout as a reference; attribution details are in `public/assets/characters/SOURCE.md`.

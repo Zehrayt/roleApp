@@ -1,3 +1,4 @@
+import "./town.css";
 import * as THREE from "three";
 import { findPath, type GridCell, type PathfindingGrid } from "../engine/PathFinder";
 import { PraglishApiClient } from "../services/PraglishApiClient";
@@ -9,6 +10,7 @@ import { buildMeshData, type MeshData } from "./mesher";
 import { paintBlockAtlas } from "./textures";
 import { SpellBookPanel } from "./SpellBookPanel";
 import { ProgressPanel } from "./ProgressPanel";
+import { AdventureJournal } from "./AdventureJournal";
 import { VocabPanel } from "./VocabPanel";
 import {
   buildTown,
@@ -78,6 +80,8 @@ export class TownGame {
   private readonly vocabPanel: VocabPanel;
   private readonly spellBook: SpellBookPanel;
   private readonly progressPanel: ProgressPanel;
+  private readonly adventureJournal: AdventureJournal | null;
+  private readonly adventureMode = new URLSearchParams(window.location.search).get("mode") === "adventure";
   private readonly dubStudio: DubStudio;
   private readonly apis = new Map<string, PraglishApiClient>();
   private readonly propHighlights = new Map<string, THREE.Box3Helper>();
@@ -95,7 +99,7 @@ export class TownGame {
   private segmentT = 0;
   private pendingTalk: NpcRuntime | null = null;
   private interaction: Interaction | null = null;
-  private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | null = null;
+  private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | null = null;
   private nearestProp: PropSpec | null = null;
   private pendingProp: PropSpec | null = null;
   private pendingActivity: BuildingSpec | null = null;
@@ -173,11 +177,13 @@ export class TownGame {
     this.vocabPanel = new VocabPanel(host, {
       onProgress: (prop, completed) => {
         if (completed) this.completedProps.add(prop.id);
+        if (completed && prop.buildingId === "library") this.adventureJournal?.record("vocab:library");
       },
       onClose: () => this.panelClosed(this.vocabPanel),
     });
     this.spellBook = new SpellBookPanel(host, { onClose: () => this.panelClosed(this.spellBook) });
     this.progressPanel = new ProgressPanel(host, () => this.panelClosed(this.progressPanel));
+    this.adventureJournal = this.adventureMode ? new AdventureJournal(host, () => this.openAdventure(), () => this.panelClosed(this.adventureJournal)) : null;
     this.dubStudio = new DubStudio(host, {
       onExit: () => {
         this.host.classList.remove("is-talking");
@@ -190,7 +196,8 @@ export class TownGame {
     this.bindInput();
     window.addEventListener("resize", () => this.resize());
     this.resize();
-    // Deep link from the Phaser menu: index.html?open=dub
+    if (this.adventureJournal) this.openAdventure();
+    // Deep link from the mode selector: index.html?open=dub
     if (new URLSearchParams(window.location.search).get("open") === "dub") this.openActivity("dub");
     requestAnimationFrame((t) => this.tick(t));
   }
@@ -269,14 +276,15 @@ export class TownGame {
     hud.className = "town-hud";
     hud.innerHTML = `
       <div class="town-brand">
-        <p class="town-brand__eyebrow">Praglish</p>
+        <p class="town-brand__eyebrow">roleApp</p>
         <h1 class="town-brand__title">Kasaba</h1>
         <p class="town-brand__hint">Yürümek için zemine dokun · NPC'ye yaklaşıp <kbd>E</kbd></p>
       </div>
       <nav class="town-links" aria-label="Diğer modlar">
         <button class="town-btn town-btn--book" type="button" data-act="book">Büyü Kitabı<kbd>B</kbd></button>
         <button class="town-btn" type="button" data-act="progress">Gelişim defteri</button>
-        <a class="town-btn" href="studio.html">Tüm modlar</a>
+        ${this.adventureMode ? `<button class="town-btn" type="button" data-act="adventure">Görevler</button>` : ""}
+        <a class="town-btn" href="./">Mod seçimi</a>
       </nav>
       <div class="town-stats" data-town-stats aria-hidden="true"></div>
       <div class="town-actions">
@@ -306,6 +314,7 @@ export class TownGame {
         else if (act === "mode-perspective") this.setCameraMode("perspective");
         else if (act === "book") this.openSpellBook();
         else if (act === "progress") this.openProgress();
+        else if (act === "adventure") this.openAdventure();
       });
     });
     const prompt = hud.querySelector<HTMLButtonElement>(".town-prompt");
@@ -356,6 +365,7 @@ export class TownGame {
       else if (k === "f" && this.nearestProp) this.openVocab(this.nearestProp);
       else if (k === "b") this.openSpellBook();
       else if (k === "p") this.openProgress();
+      else if (k === "g" && this.adventureJournal) this.openAdventure();
       else if (k === "k" && this.interaction?.kind === "activity") this.interact();
       else if (k === "q") this.rig.rotate(-1);
       else if (k === "r") this.rig.rotate(1);
@@ -585,7 +595,17 @@ export class TownGame {
     this.progressPanel.open();
   }
 
-  private panelClosed(panel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | null): void {
+  private openAdventure(): void {
+    if (!this.adventureJournal) return;
+    if (this.activePanel && this.activePanel !== this.adventureJournal) this.activePanel.close();
+    this.activePanel = this.adventureJournal;
+    this.keys.clear();
+    this.path = [];
+    this.host.classList.add("is-talking");
+    this.adventureJournal.open();
+  }
+
+  private panelClosed(panel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | null): void {
     if (panel && this.activePanel === panel) {
       this.activePanel = null;
       this.host.classList.remove("is-talking");
@@ -638,6 +658,7 @@ export class TownGame {
           npc.replyUntil = performance.now() + seconds * 1000;
           if (speaker === "npc") npc.character.talk(seconds, performance.now());
         },
+        onAcceptedTurn: () => this.adventureJournal?.record(`talk:${npc.spec.id}` as "talk:maya" | "talk:lina" | "talk:leo"),
         onClose: () => this.panelClosed(npc.panel),
       });
     }

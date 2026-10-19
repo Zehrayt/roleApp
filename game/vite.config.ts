@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 
-// Two pages: index.html = block town (three.js), studio.html = existing Phaser modes.
+// Two pages: index.html = mode selector and town (three.js); studio.html = legacy Phaser scenes.
 export default defineConfig({
   server: {
     host: true,

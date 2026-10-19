@@ -4,7 +4,7 @@ import { VoxelWorld } from "./VoxelWorld";
 
 /**
  * The hub town. Every building is a "mekan" from the roleApp spec: the player
- * walks in through the door instead of picking a mode from a menu.
+ * walks into each building after choosing a mode from the opening screen.
  *
  * Coordinates are block cells: x grows east, z grows south. Ground is y = 1.
  */
