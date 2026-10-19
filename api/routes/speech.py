@@ -1,8 +1,10 @@
 
 import httpx
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
+from core.auth import authenticated_user
+from models.models import User
 from services.ai_client import synthesize_speech, transcribe_audio
 from shared.schemas import STTResponse, TTSRequest
 
@@ -17,6 +19,7 @@ MAX_AUDIO_BYTES = 10 * 1024 * 1024
 async def speech_to_text(
     audio: UploadFile = File(...),
     language_code: str | None = Query(default="en-US"),
+    _user: User = Depends(authenticated_user),
 ) -> STTResponse:
 
     audio_bytes = await audio.read()
@@ -52,7 +55,7 @@ async def speech_to_text(
 
 
 @router.post("/tts")
-async def text_to_speech(payload: TTSRequest) -> Response:
+async def text_to_speech(payload: TTSRequest, _user: User = Depends(authenticated_user)) -> Response:
 
     try:
         audio_bytes, extra_headers = await synthesize_speech(payload)

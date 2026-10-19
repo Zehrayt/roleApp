@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from core.auth import authenticated_user
 from core.database import SessionLocal, get_db
 from models.models import Dialogue, GameSession, LearningTurnEvent, User
 from services.ai_client import evaluate_and_respond, extract_utterance
@@ -68,10 +69,13 @@ async def process_turn(
     request: TurnRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    current_user: User = Depends(authenticated_user),
 ):
     session = db.query(GameSession).filter(GameSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="This session belongs to another player")
     if not session.is_active:
         raise HTTPException(status_code=400, detail="Session is closed")
 

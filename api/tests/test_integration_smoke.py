@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import base64
 import os
 import unittest
 import urllib.error
@@ -26,9 +27,12 @@ def _request(
     payload: dict | None = None,
     *,
     timeout: float = TIMEOUT_SECONDS,
+    auth: tuple[str, str] | None = None,
 ) -> tuple[int, object]:
     data = None
     headers = {}
+    if auth is not None:
+        headers["Authorization"] = "Basic " + base64.b64encode(f"{auth[0]}:{auth[1]}".encode()).decode()
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
@@ -75,6 +79,7 @@ class IntegrationSmokeTest(unittest.TestCase):
                 "http://ai:8001 and http://game:5173)."
             )
         cls.username = f"smoketest_{os.getpid()}"
+        cls.password = "smoketest-pw-123"
 
     def test_01_api_health(self) -> None:
         status, body = _request("GET", f"{API_URL}/health")
@@ -96,7 +101,7 @@ class IntegrationSmokeTest(unittest.TestCase):
             f"{API_URL}/api/session/start",
             {
                 "username": self.username,
-                "password": "smoketest-pw-123",
+                "password": self.password,
                 "location": "bakery",
                 "npc_role": "baker",
             },
@@ -109,6 +114,7 @@ class IntegrationSmokeTest(unittest.TestCase):
             f"{API_URL}/api/session/{session_id}/turn",
             {"user_text": "Could I get a croissant, please?"},
             timeout=TURN_TIMEOUT_SECONDS,
+            auth=(self.username, self.password),
         )
         self.assertEqual(status, 200, f"first turn failed: {body}")
         for field in ("accepted", "npc_response", "response_speaker"):
@@ -122,6 +128,7 @@ class IntegrationSmokeTest(unittest.TestCase):
             f"{API_URL}/api/session/{session_id}/turn",
             {"user_text": "Thank you very much!"},
             timeout=TURN_TIMEOUT_SECONDS,
+            auth=(self.username, self.password),
         )
         self.assertEqual(status, 200, f"second turn failed: {body}")
 

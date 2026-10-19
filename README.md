@@ -436,8 +436,9 @@ verifies conversation continuity, and confirms dashboard activity.
 - Set `CORS_ORIGINS` to the deployed game origin.
 - The API reads the platform-provided `PORT` and falls back to 8000 locally.
 - Use HTTPS for deployed microphone access.
-- The API creates missing tables at startup, but `create_all()` does not
-  migrate existing columns. Use Alembic before storing production data.
+- The API applies checked-in Alembic revisions at startup. Existing prototype
+  databases with an identical baseline are stamped without losing data; a
+  mismatched schema stops startup so it can receive a targeted migration.
 
 ## Troubleshooting
 
@@ -453,13 +454,21 @@ or database error, so inspect API logs before changing CORS.
 
 ### The local database schema is outdated
 
-```bash
-docker compose down -v
-docker compose up --build -d
-```
+The API applies Alembic revisions at startup. Check `docker compose logs api db`
+and `docker compose exec api alembic current`. If an older database differs from
+the checked-in baseline, back it up and write a targeted revision before retrying.
+The Docker PostgreSQL volume persists across container recreation. Existing
+`.local/roleapp.db` SQLite progress is separate and is not imported into it.
 
-This deletes all local data. Migrate a production database instead.
+### Docker Desktop fails on `sailor-ingest.sock` or `engine.sock`
 
+On this Windows machine, inaccessible Unix socket entries in
+`%LOCALAPPDATA%\Docker\run` and `%LOCALAPPDATA%\docker-secrets-engine` prevented
+Docker Desktop from starting. Close Docker Desktop fully, rename only those
+temporary socket directories to dated backup names, then start Docker Desktop
+again. Do not reset Docker to factory defaults: that may remove the local
+PostgreSQL volume. If the issue returns after a later Desktop restart, repeat
+the socket-directory cleanup; project code cannot repair Windows socket files.
 ### The AI service reports `unconfigured`
 
 Set `GEMINI_API_KEY` or `GROQ_API_KEY`, then run:
@@ -485,7 +494,7 @@ reads the platform's `PORT` and uses 8000 only as a local fallback.
 - Provider selection occurs at startup with no automatic request-level failover.
 - Mock mode does not provide meaningful speech or dubbing evaluation.
 - Guest authentication is suitable for a prototype, not production.
-- Production schema changes require a complete Alembic migration workflow.
+- Add an Alembic revision for every future schema change; startup applies it.
 
 Praglish does not replace learning. It creates the missing space between
 knowing English and actually using it.

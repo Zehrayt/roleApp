@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from core.auth import authenticated_user, require_owner
 from core.database import get_db
 from models.models import User, VocabularyProgress
 from services.vocabulary_engine import VocabularyEngine
@@ -30,7 +31,8 @@ def _count_earned(db: Session, user_id: int, location: str, concept: str) -> int
 
 
 @router.post("/submit")
-def submit_word(request: VocabularySubmitRequest, db: Session = Depends(get_db)):
+def submit_word(request: VocabularySubmitRequest, db: Session = Depends(get_db), current_user: User = Depends(authenticated_user)):
+    require_owner(request.user_id, current_user)
     user = db.query(User).filter(User.id == request.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -122,7 +124,8 @@ def submit_word(request: VocabularySubmitRequest, db: Session = Depends(get_db))
 
 
 @router.get("/progress/{user_id}/{location}")
-def get_progress(user_id: int, location: str, db: Session = Depends(get_db)):
+def get_progress(user_id: int, location: str, db: Session = Depends(get_db), current_user: User = Depends(authenticated_user)):
+    require_owner(user_id, current_user)
     vocab = VocabularyEngine.load_vocabulary(location)
 
     progress_rows = (

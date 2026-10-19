@@ -8,6 +8,7 @@ import { DialoguePanel } from "./DialoguePanel";
 import { buildMeshData, type MeshData } from "./mesher";
 import { paintBlockAtlas } from "./textures";
 import { SpellBookPanel } from "./SpellBookPanel";
+import { ProgressPanel } from "./ProgressPanel";
 import { VocabPanel } from "./VocabPanel";
 import {
   buildTown,
@@ -76,6 +77,7 @@ export class TownGame {
   private readonly vocabPrompt: HTMLButtonElement;
   private readonly vocabPanel: VocabPanel;
   private readonly spellBook: SpellBookPanel;
+  private readonly progressPanel: ProgressPanel;
   private readonly dubStudio: DubStudio;
   private readonly apis = new Map<string, PraglishApiClient>();
   private readonly propHighlights = new Map<string, THREE.Box3Helper>();
@@ -93,7 +95,7 @@ export class TownGame {
   private segmentT = 0;
   private pendingTalk: NpcRuntime | null = null;
   private interaction: Interaction | null = null;
-  private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | null = null;
+  private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | null = null;
   private nearestProp: PropSpec | null = null;
   private pendingProp: PropSpec | null = null;
   private pendingActivity: BuildingSpec | null = null;
@@ -175,6 +177,7 @@ export class TownGame {
       onClose: () => this.panelClosed(this.vocabPanel),
     });
     this.spellBook = new SpellBookPanel(host, { onClose: () => this.panelClosed(this.spellBook) });
+    this.progressPanel = new ProgressPanel(host, () => this.panelClosed(this.progressPanel));
     this.dubStudio = new DubStudio(host, {
       onExit: () => {
         this.host.classList.remove("is-talking");
@@ -272,21 +275,23 @@ export class TownGame {
       </div>
       <nav class="town-links" aria-label="Diğer modlar">
         <button class="town-btn town-btn--book" type="button" data-act="book">Büyü Kitabı<kbd>B</kbd></button>
-        <a class="town-btn" href="studio.html?scene=DashboardScene">Gelişim defteri</a>
+        <button class="town-btn" type="button" data-act="progress">Gelişim defteri</button>
         <a class="town-btn" href="studio.html">Tüm modlar</a>
       </nav>
       <div class="town-stats" data-town-stats aria-hidden="true"></div>
-      <div class="town-controls" role="toolbar" aria-label="Kamera">
-        <button class="town-btn" data-act="rotL" title="Sola döndür (Q)">↺<kbd>Q</kbd></button>
-        <button class="town-btn" data-act="rotR" title="Sağa döndür (R)">↻<kbd>R</kbd></button>
-        <button class="town-btn" data-act="zoomOut" title="Uzaklaş">−</button>
-        <button class="town-btn" data-act="zoomIn" title="Yakınlaş">+</button>
-        <button class="town-btn" data-act="mode-iso" aria-pressed="true">İzometrik</button>
-        <button class="town-btn" data-act="mode-perspective" aria-pressed="false">Perspektif</button>
-      </div>
-      <div class="town-prompts">
-        <button class="town-prompt" type="button" hidden></button>
-        <button class="town-prompt town-prompt--vocab" type="button" hidden></button>
+      <div class="town-actions">
+        <div class="town-controls" role="toolbar" aria-label="Kamera">
+          <button class="town-btn" data-act="rotL" title="Sola döndür (Q)">↺<kbd>Q</kbd></button>
+          <button class="town-btn" data-act="rotR" title="Sağa döndür (R)">↻<kbd>R</kbd></button>
+          <button class="town-btn" data-act="zoomOut" title="Uzaklaş">−</button>
+          <button class="town-btn" data-act="zoomIn" title="Yakınlaş">+</button>
+          <button class="town-btn" data-act="mode-iso" aria-pressed="true">İzometrik</button>
+          <button class="town-btn" data-act="mode-perspective" aria-pressed="false">Perspektif</button>
+        </div>
+        <div class="town-prompts">
+          <button class="town-prompt" type="button" hidden></button>
+          <button class="town-prompt town-prompt--vocab" type="button" hidden></button>
+        </div>
       </div>`;
     this.host.appendChild(hud);
 
@@ -300,6 +305,7 @@ export class TownGame {
         else if (act === "mode-iso") this.setCameraMode("iso");
         else if (act === "mode-perspective") this.setCameraMode("perspective");
         else if (act === "book") this.openSpellBook();
+        else if (act === "progress") this.openProgress();
       });
     });
     const prompt = hud.querySelector<HTMLButtonElement>(".town-prompt");
@@ -349,6 +355,7 @@ export class TownGame {
       else if (k === "e" || k === "enter") this.interact();
       else if (k === "f" && this.nearestProp) this.openVocab(this.nearestProp);
       else if (k === "b") this.openSpellBook();
+      else if (k === "p") this.openProgress();
       else if (k === "k" && this.interaction?.kind === "activity") this.interact();
       else if (k === "q") this.rig.rotate(-1);
       else if (k === "r") this.rig.rotate(1);
@@ -569,7 +576,16 @@ export class TownGame {
     this.spellBook.open(api);
   }
 
-  private panelClosed(panel: DialoguePanel | VocabPanel | SpellBookPanel | null): void {
+  private openProgress(): void {
+    if (this.activePanel && this.activePanel !== this.progressPanel) this.activePanel.close();
+    this.activePanel = this.progressPanel;
+    this.keys.clear();
+    this.path = [];
+    this.host.classList.add("is-talking");
+    this.progressPanel.open();
+  }
+
+  private panelClosed(panel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | null): void {
     if (panel && this.activePanel === panel) {
       this.activePanel = null;
       this.host.classList.remove("is-talking");

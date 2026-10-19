@@ -12,6 +12,7 @@ if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
 
 from routes import speech  # noqa: E402
+from core.auth import authenticated_user  # noqa: E402
 
 
 class SpeechRouteTests(unittest.TestCase):
@@ -19,6 +20,7 @@ class SpeechRouteTests(unittest.TestCase):
         self.original_transcribe_audio = speech.transcribe_audio
         app = FastAPI()
         app.include_router(speech.router, prefix="/api/speech")
+        app.dependency_overrides[authenticated_user] = lambda: object()
         self.client = TestClient(app)
 
     def tearDown(self):

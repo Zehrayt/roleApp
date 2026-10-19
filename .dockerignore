@@ -8,3 +8,4 @@ venv
 game/node_modules
 game/dist
 *.wav
+.local

@@ -12,6 +12,7 @@ if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
 
 from routes import dub  # noqa: E402
+from core.auth import authenticated_user  # noqa: E402
 
 
 async def fake_transcribe_audio(*_args, **_kwargs):
@@ -24,6 +25,7 @@ class DubScriptTests(unittest.TestCase):
         dub.transcribe_audio = fake_transcribe_audio
         app = FastAPI()
         app.include_router(dub.router, prefix="/api/dub")
+        app.dependency_overrides[authenticated_user] = lambda: object()
         self.client = TestClient(app)
 
     def tearDown(self):

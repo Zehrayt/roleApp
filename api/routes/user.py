@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
+from core.auth import authenticated_user, require_owner
 from core.database import get_db
 from models.models import User
 
@@ -18,7 +19,8 @@ class UserProfileResponse(BaseModel):
 
 
 @router.get("/{user_id}", response_model=UserProfileResponse)
-def get_user_profile(user_id: int, db: Session = Depends(get_db)):
+def get_user_profile(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(authenticated_user)):
+    require_owner(user_id, current_user)
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

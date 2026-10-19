@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { findPath, type PathfindingGrid } from "../../engine/PathFinder";
 import { Block } from "../blocks";
@@ -173,7 +174,7 @@ describe("town map", () => {
 
   it("uses concepts that exist in the backend vocabulary files", () => {
     for (const prop of town.props) {
-      const url = new URL(`../../../../api/game_data/vocabulary/${prop.location}.json`, import.meta.url);
+      const url = resolve(__dirname, `../../../../api/game_data/vocabulary/${prop.location}.json`);
       const vocab = JSON.parse(readFileSync(url, "utf-8")) as { concepts: Array<{ concept: string }> };
       expect(vocab.concepts.some((c) => c.concept === prop.concept), `${prop.location}/${prop.concept}`).toBe(true);
     }

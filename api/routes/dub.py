@@ -18,9 +18,11 @@ import difflib
 import logging
 
 import httpx
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
+from core.auth import authenticated_user
+from models.models import User
 from services.ai_client import transcribe_audio
 
 router = APIRouter()
@@ -725,6 +727,7 @@ async def score_line(
     script_id: str,
     line_id: int,
     audio: UploadFile = File(...),
+    _user: User = Depends(authenticated_user),
 ) -> ScoreLineResponse:
     script = SCRIPTS.get(script_id)
     if script is None:

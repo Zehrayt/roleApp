@@ -5,8 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from core.database import Base, engine
-from models import models
+from core.migrate import upgrade_database
 from routes import analytics, dub, leaderboard, session, speech, spellbook, turn, user, vocabulary
 
 logger = logging.getLogger("uvicorn.error")
@@ -63,7 +62,7 @@ app.include_router(spellbook.router, prefix="/api/spellbook", tags=["spellbook"]
 def on_startup():
 
 
-    Base.metadata.create_all(bind=engine)
+    upgrade_database()
 
 
 @app.get("/health")

@@ -1,3 +1,5 @@
+import { guestAuthHeader } from "./guestAuth";
+import { PraglishApiClient } from "./PraglishApiClient";
 
 const runtimeWindow = window as typeof window & { PRAGLISH_API_BASE_URL?: string };
 const API_BASE_URL = (runtimeWindow.PRAGLISH_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
@@ -42,11 +44,13 @@ export interface ScoreLineResponse {
 }
 
 export class DubApiClient {
+  private readonly account = new PraglishApiClient();
   public async listScripts(): Promise<DubScript[]> {
     return this.getJson<DubScript[]>("/api/dub/scripts");
   }
 
   public async scoreLine(scriptId: string, lineId: number, audioBlob: Blob): Promise<ScoreLineResponse> {
+    await this.account.startSession();
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 30_000);
     try {
@@ -54,7 +58,7 @@ export class DubApiClient {
       formData.append("audio", audioBlob, "recording.webm");
       const response = await fetch(
         `${API_BASE_URL}/api/dub/scripts/${scriptId}/lines/${lineId}/score`,
-        { method: "POST", body: formData, signal: controller.signal },
+        { method: "POST", body: formData, headers: { Authorization: guestAuthHeader() }, signal: controller.signal },
       );
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
@@ -73,12 +77,13 @@ export class DubApiClient {
   }
 
   public async synthesizeLine(text: string, voice: string): Promise<Blob> {
+    await this.account.startSession();
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 30_000);
     try {
       const response = await fetch(`${API_BASE_URL}/api/speech/tts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: guestAuthHeader() },
         body: JSON.stringify({ text, voice }),
         signal: controller.signal,
       });

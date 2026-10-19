@@ -19,3 +19,6 @@ dist/
 /*.mp4
 /*.mov
 /*.mkv
+
+# Local development database and service logs
+.local/

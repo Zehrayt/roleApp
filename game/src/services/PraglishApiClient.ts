@@ -1,12 +1,6 @@
+import { guestAuthHeader, guestCredentials } from "./guestAuth";
 const runtimeWindow = window as typeof window & { PRAGLISH_API_BASE_URL?: string };
 const API_BASE_URL = (runtimeWindow.PRAGLISH_API_BASE_URL ?? "http://localhost:8000").replace(/\/$/, "");
-
-const STORAGE_KEY = "praglish.guest.credentials.v1";
-
-interface GuestCredentials {
-  username: string;
-  password: string;
-}
 
 interface SessionStartResponse {
   session_id: number;
@@ -209,7 +203,7 @@ export class PraglishApiClient {
   }
 
   public async getDashboard(): Promise<DashboardData> {
-    return this.request<DashboardData>("/api/analytics/dashboard", this.getGuestCredentials());
+    return this.request<DashboardData>("/api/analytics/dashboard", guestCredentials());
   }
 
   public async transcribeAudio(audioBlob: Blob): Promise<SpeechToTextResult> {
@@ -221,6 +215,7 @@ export class PraglishApiClient {
       const response = await fetch(`${API_BASE_URL}/api/speech/stt`, {
         method: "POST",
         body: formData,
+        headers: { Authorization: guestAuthHeader() },
         signal: controller.signal,
       });
       if (!response.ok) {
@@ -249,7 +244,7 @@ export class PraglishApiClient {
     try {
       const response = await fetch(`${API_BASE_URL}/api/speech/tts`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: guestAuthHeader() },
         body: JSON.stringify(profile ? { text, ...profile } : { text }),
         signal: controller.signal,
       });
@@ -269,7 +264,7 @@ export class PraglishApiClient {
   }
 
   private async createSession(): Promise<number> {
-    const credentials = this.getGuestCredentials();
+    const credentials = guestCredentials();
     const response = await this.request<SessionStartResponse>("/api/session/start", {
       ...credentials,
       location: this.config.location,
@@ -294,9 +289,9 @@ export class PraglishApiClient {
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 125_000);
     try {
-      const init: RequestInit = { method: options.method, signal: controller.signal };
+      const init: RequestInit = { method: options.method, signal: controller.signal, headers: { Authorization: guestAuthHeader() } };
       if (options.body !== undefined) {
-        init.headers = { "Content-Type": "application/json" };
+        init.headers = { "Content-Type": "application/json", Authorization: guestAuthHeader() };
         init.body = JSON.stringify(options.body);
       }
       const response = await fetch(`${API_BASE_URL}${path}`, init);
@@ -316,22 +311,4 @@ export class PraglishApiClient {
     }
   }
 
-  private getGuestCredentials(): GuestCredentials {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        return JSON.parse(stored) as GuestCredentials;
-      } catch {
-        window.localStorage.removeItem(STORAGE_KEY);
-      }
-    }
-
-    const id = crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-    const credentials = {
-      username: `guest_${id}`,
-      password: crypto.randomUUID(),
-    };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(credentials));
-    return credentials;
-  }
 }

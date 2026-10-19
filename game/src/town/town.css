@@ -27,7 +27,8 @@ body {
   font-family: var(--font-body);
   overflow: hidden;
 }
-#town { position: relative; width: 100%; height: 100%; overflow: hidden; }
+/* Projected world labels may sit outside the viewport; never let focus scroll the game. */
+#town { position: relative; width: 100%; height: 100%; overflow: clip; }
 #town canvas { display: block; touch-action: none; cursor: pointer; }
 
 kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.75; margin-left: 4px; }
@@ -49,10 +50,16 @@ kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.75; margin-l
   right: 16px; top: 66px; padding: 6px 10px; font-size: 12px;
   color: var(--panel-muted); font-variant-numeric: tabular-nums;
 }
+/* Keep prompts above the camera even when either row wraps. */
+.town-actions {
+  left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex; flex-direction: column-reverse; align-items: center; gap: 12px;
+  pointer-events: none;
+}
+.town-actions > * { pointer-events: auto; }
 .town-controls {
-  left: 50%; bottom: 16px; transform: translateX(-50%);
   display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; justify-content: center;
-  max-width: calc(100% - 32px);
+  max-width: 100%; box-sizing: border-box;
 }
 .town-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -67,9 +74,8 @@ kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.75; margin-l
 .town-btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
 .town-prompts {
-  left: 50%; bottom: 72px; transform: translateX(-50%);
   display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
-  width: max-content; max-width: calc(100% - 32px);
+  width: fit-content; max-width: 100%;
 }
 .town-prompt {
   font: 700 16px var(--font-display); color: var(--accent-ink); background: var(--accent);
@@ -134,13 +140,17 @@ kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.75; margin-l
 .town-dialogue__send { min-width: 84px; background: var(--accent); color: var(--accent-ink); }
 .town-dialogue button:disabled { opacity: 0.6; cursor: wait; }
 
+@media (max-width: 900px) {
+  .town-links { top: 108px; left: 16px; right: 16px; flex-wrap: wrap; width: fit-content; }
+  .town-stats { display: none; }
+}
 @media (max-width: 640px) {
   .town-brand { right: 16px; max-width: none; }
   .town-brand__title { font-size: 20px; }
   .town-brand__hint { display: none; }
-  .town-links { top: auto; bottom: 120px; right: 16px; }
+  .town-links { top: 80px; }
   .town-stats { display: none; }
-  .town-controls { width: calc(100% - 32px); }
+  .town-controls { width: 100%; }
   .town-btn { height: 34px; padding: 0 10px; }
   kbd { display: none; }
   .town-dialogue__messages { height: 120px; }
