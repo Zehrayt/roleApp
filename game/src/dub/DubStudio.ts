@@ -300,7 +300,7 @@ export class DubStudio {
           this.pickingCharacter = false;
           this.renderShelfCases();
         } else {
-          this.exitToMenu();
+          this.exitToModeSelect();
         }
       } else return;
       event.preventDefault();
@@ -428,6 +428,11 @@ export class DubStudio {
     this.events.onExit();
   }
 
+  private exitToModeSelect(): void {
+    this.teardown();
+    window.location.assign("./");
+  }
+
   private setStatus(text: string, isError = false): void {
     if (!this.statusEl) return;
     this.statusEl.textContent = text;
@@ -534,7 +539,7 @@ export class DubStudio {
     const node = this.mount(`
       <div class="dub-shop">
         <header class="dub-shop__head">
-          <button type="button" class="dub-shop__btn" data-action="exit">&larr; Kasaba</button>
+          <button type="button" class="dub-shop__btn" data-action="exit">&larr; Menü</button>
           <div class="dub-shop__sign"><strong>KASET &amp; CD</strong><span>Bir sahne seç, karakterini seslendir</span></div>
           <button type="button" class="dub-shop__btn" data-action="open-journal">Günlük</button>
         </header>
@@ -547,7 +552,7 @@ export class DubStudio {
         <div class="dub-shop__info" data-role="info"></div>
         <footer class="dub-shop__keys"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> gez · <kbd>Boşluk</kbd> seç · <kbd>Esc</kbd> geri</footer>
       </div>
-    `);
+    `, () => this.exitToModeSelect());
     node.querySelector('[data-action="open-journal"]')?.addEventListener("click", () => this.renderJournal());
     node.querySelector('[data-action="prev"]')?.addEventListener("click", () => this.shelfMove(-1));
     node.querySelector('[data-action="next"]')?.addEventListener("click", () => this.shelfMove(1));
