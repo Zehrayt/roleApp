@@ -164,11 +164,40 @@ class EvaluateResponse(BaseModel):
     rewards: Optional[RewardInfo] = None
     # Focus words that actually appear in npc_response (set by the API).
     used_focus_words: list[str] = Field(default_factory=list)
+    adventure_stage: Optional[int] = None
+    inventory_changes: list[dict[str, Any]] = Field(default_factory=list)
+    adventure_notice: Optional[str] = None
+
+
+class InventoryEntry(BaseModel):
+    item_id: str
+    name: str
+    quantity: int = Field(ge=1)
+
+
+class InventoryTransfer(BaseModel):
+    item_id: str = Field(min_length=1, max_length=80)
+    name: str = Field(min_length=1, max_length=80)
+    delta: int = Field(ge=-99, le=99)
+    category: Literal["food", "drink", "other"]
+
+
+class InventoryDecisionRequest(BaseModel):
+    location: str
+    npc_role: str
+    player_text: str
+    npc_reply: str
+    previous_dialogue: list[DialogueTurn] = Field(default_factory=list)
+    inventory: list[InventoryEntry] = Field(default_factory=list)
+
+
+class InventoryDecisionResponse(BaseModel):
+    transfers: list[InventoryTransfer] = Field(default_factory=list)
 
 
 class TTSRequest(BaseModel):
     text: str
-    voice: str = "Kore"
+    voice: str = "hannah"
     style: str = "Speak naturally, warmly, and at a patient conversational pace."
 
 

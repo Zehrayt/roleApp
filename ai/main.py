@@ -5,6 +5,7 @@ import time
 import uuid
 from functools import lru_cache
 
+import httpx
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import Response
 from starlette.concurrency import run_in_threadpool
@@ -40,6 +41,8 @@ from modules import (
 )
 
 from shared.schemas import (
+    InventoryDecisionRequest,
+    InventoryDecisionResponse,
     CorrectionInput,
     CorrectionResult,
     CorrectExtractionResult,
@@ -58,6 +61,13 @@ load_dotenv()
 
 app = FastAPI(title="English World - AI Service")
 logger = logging.getLogger("uvicorn.error")
+
+
+@app.post("/inventory/decide", response_model=InventoryDecisionResponse)
+def inventory_decide(payload: InventoryDecisionRequest):
+    from modules.inventory_decision import decide_inventory_transfers
+
+    return decide_inventory_transfers(payload)
 
 NPC_PROFILES = {
     ("bakery", "baker"): {
@@ -190,13 +200,7 @@ def get_npc_generator() -> TextGenerator:
 
 @lru_cache
 def get_stt_provider() -> SpeechToTextProvider:
-    # Reuse the existing paid TTS key for STT unless an STT-specific key is
-    # supplied. The shared Gemini key remains the final Gemini fallback.
-    gemini_stt_key = (
-        _env("GEMINI_STT_API_KEY")
-        or _env("GEMINI_TTS_API_KEY")
-        or _env("GEMINI_API_KEY")
-    )
+    gemini_stt_key = _env("GEMINI_STT_API_KEY") or _env("GEMINI_API_KEY")
     if gemini_stt_key:
         return GeminiSpeechToTextProvider(
             api_key=gemini_stt_key,
@@ -210,20 +214,6 @@ def get_stt_provider() -> SpeechToTextProvider:
 
 @lru_cache
 def get_tts_provider() -> TextToSpeechProvider:
-
-
-
-    dedicated_gemini_tts_key = _env("GEMINI_TTS_API_KEY")
-    if dedicated_gemini_tts_key:
-        return GeminiTextToSpeechProvider(
-            api_key=dedicated_gemini_tts_key,
-            model=_env("TTS_MODEL", "gemini-3.1-flash-tts-preview"),
-        )
-    if _active_ai_provider() == "gemini":
-        return GeminiTextToSpeechProvider(
-            api_key=_env("GEMINI_API_KEY"),
-            model=_env("TTS_MODEL", "gemini-3.1-flash-tts-preview"),
-        )
     return GroqTextToSpeechProvider(
         api_key=_env("GROQ_API_KEY"),
         model=_env("GROQ_TTS_MODEL", "canopylabs/orpheus-v1-english"),
@@ -452,7 +442,23 @@ def text_to_speech(payload: TTSRequest):
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        try:
+            provider_body = exc.response.json()
+            provider_error = provider_body.get("error", {}) if isinstance(provider_body, dict) else {}
+            code = provider_error.get("code") if isinstance(provider_error, dict) else None
+        except ValueError:
+            code = None
+        if code == "model_terms_required":
+            detail = "The Groq Orpheus model terms have not been accepted. Open the model in Groq Console and accept the terms."
+            status = 424
+        else:
+            detail = f"Groq TTS request was rejected (HTTP {exc.response.status_code}{f', code: {code}' if code else ''})."
+            status = 502
+        logger.warning("TTS provider rejected request: status=%s code=%s", exc.response.status_code, code)
+        raise HTTPException(status_code=status, detail=detail) from exc
     except Exception as exc:
+        logger.exception("Speech synthesis failed")
         raise HTTPException(status_code=502, detail="Speech synthesis failed") from exc
 
     return Response(

@@ -46,8 +46,8 @@ class ScriptLine(BaseModel):
 
 
 
-    # Gemini prebuilt voice used when the parent script has no original audio.
-    voice: str = "Kore"
+    # Groq Orpheus voice used when the parent script has no original audio.
+    voice: str = "diana"
     # Bounds within the script's shared audio and video timeline.
 
 

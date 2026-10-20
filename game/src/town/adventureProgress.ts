@@ -1,4 +1,4 @@
-export type AdventureEvent = "talk:maya" | "talk:lina" | "talk:leo";
+export type AdventureEvent = "inventory:provisions" | "inventory:boat_manual" | "talk:leo";
 
 export interface AdventureStep {
   title: string;
@@ -8,9 +8,9 @@ export interface AdventureStep {
 }
 
 export const ADVENTURE_STEPS: readonly AdventureStep[] = [
-  { title: "Yol için erzak", place: "Fırın · Maya", detail: "Maya ile İngilizce konuşarak yolculuk hazırlığına başla.", event: "talk:maya" },
-  { title: "Eski kayıtlar", place: "Kütüphane · Lina", detail: "Lina ile İngilizce konuşarak eski kayıtları araştır.", event: "talk:lina" },
-  { title: "Son hazırlık", place: "Kafe · Leo", detail: "Leo ile İngilizce konuşarak yol öncesi mola ver.", event: "talk:leo" },
+  { title: "Supplies for the Road", place: "Bakery · Maya", detail: "Get food or a drink for your journey from Maya. This quest is complete when the item enters your inventory.", event: "inventory:provisions" },
+  { title: "Boat-Building Handbook", place: "Library · Lina", detail: "Get a boat-building handbook from Lina. This quest is complete when the book enters your inventory.", event: "inventory:boat_manual" },
+  { title: "One Last Stop", place: "Café · Leo", detail: "Talk to Leo in English and take a break before your journey.", event: "talk:leo" },
 ];
 
 export function nextAdventureStage(stage: number, event: AdventureEvent): number {

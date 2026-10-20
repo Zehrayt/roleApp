@@ -60,34 +60,22 @@ _MIME_TO_FILE_EXTENSION = {
     "audio/webm": "webm",
 }
 
-# Groq's Orpheus TTS voices (English) - see
-# https://console.groq.com/docs/text-to-speech. Gemini voice names (e.g. the
-# "Kore" default used across this project) aren't valid here, so
-# GroqTextToSpeechProvider falls back to _GROQ_DEFAULT_VOICE for anything it
-# doesn't recognize instead of forwarding an invalid name to Groq.
+# Current Orpheus English voices: https://console.groq.com/docs/text-to-speech/orpheus
 GROQ_TTS_VOICES = {
-    "aaliyah",
-    "adam",
-    "angelo",
-    "arsenio",
     "autumn",
     "austin",
-    "axel",
-    "cillian",
-    "eric",
+    "daniel",
+    "diana",
     "hannah",
-    "jesse",
-    "julia",
-    "leah",
-    "leo",
-    "mia",
-    "nia",
-    "quinn",
-    "ruby",
-    "sam",
     "troy",
 }
 _GROQ_DEFAULT_VOICE = "hannah"
+_LEGACY_GEMINI_VOICES = {
+    "kore": "diana",
+    "leda": "hannah",
+    "puck": "austin",
+    "gacrux": "daniel",
+}
 logger = logging.getLogger("uvicorn.error")
 
 
@@ -408,12 +396,17 @@ class GroqTextToSpeechProvider:
         if not text:
             raise ValueError("text cannot be empty")
 
-        # `voice` may be a Gemini voice name (e.g. the project-wide "Kore"
-        # default) if the caller didn't know which provider is active -
-        # silently fall back to a valid Groq voice instead of erroring.
-        resolved_voice = voice.strip().lower()
+        # Keep existing roleplay and saved dubbing profiles distinct after
+        # switching speech generation from Gemini to Groq.
+        resolved_voice = _LEGACY_GEMINI_VOICES.get(voice.strip().lower(), voice.strip().lower())
         if resolved_voice not in GROQ_TTS_VOICES:
             resolved_voice = _GROQ_DEFAULT_VOICE
+
+        # Groq accepts short bracketed vocal directions in the input text.
+        # The older prose style prompts used for Gemini are not directions.
+        direction = style.strip()
+        directed_input = f"{direction} {text}" if direction.startswith("[") and direction.endswith("]") else text
+        spoken_input = directed_input if len(directed_input) <= 200 else text
 
         started = time.perf_counter()
         response = self._client.post(
@@ -421,7 +414,7 @@ class GroqTextToSpeechProvider:
             json={
                 "model": self._model,
                 "voice": resolved_voice,
-                "input": text,
+                "input": spoken_input,
                 "response_format": "wav",
             },
         )
@@ -430,6 +423,7 @@ class GroqTextToSpeechProvider:
         audio = response.content
         if not audio:
             raise RuntimeError("Groq returned an empty TTS response")
+        audio = _finalize_streaming_wav(audio)
 
         return SpeechAudioResult(
             audio=audio,
@@ -439,6 +433,25 @@ class GroqTextToSpeechProvider:
             sample_rate_hz=24_000,
             latency_ms=latency_ms,
         )
+
+
+def _finalize_streaming_wav(audio: bytes) -> bytes:
+    """Replace streaming RIFF/data length placeholders with the actual sizes."""
+    if len(audio) < 44 or audio[:4] != b"RIFF" or audio[8:12] != b"WAVE":
+        return audio
+    offset = 12
+    while offset + 8 <= len(audio):
+        chunk = audio[offset : offset + 4]
+        chunk_size = int.from_bytes(audio[offset + 4 : offset + 8], "little")
+        if chunk == b"data":
+            if chunk_size != 0xFFFFFFFF and int.from_bytes(audio[4:8], "little") != 0xFFFFFFFF:
+                return audio
+            fixed = bytearray(audio)
+            fixed[4:8] = (len(audio) - 8).to_bytes(4, "little")
+            fixed[offset + 4 : offset + 8] = (len(audio) - offset - 8).to_bytes(4, "little")
+            return bytes(fixed)
+        offset += 8 + chunk_size + (chunk_size & 1)
+    return audio
 
 
 class TextSpeechModule:

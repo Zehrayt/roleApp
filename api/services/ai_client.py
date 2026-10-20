@@ -4,6 +4,8 @@ from typing import Literal
 import httpx
 
 from shared.schemas import (
+    InventoryDecisionRequest,
+    InventoryDecisionResponse,
     CorrectExtractionResult,
     EvaluateRequest,
     EvaluateResponse,
@@ -85,6 +87,15 @@ async def evaluate_and_respond(payload: EvaluateRequest) -> EvaluateResponse:
         )
         response.raise_for_status()
         return EvaluateResponse(**response.json())
+
+
+async def decide_inventory_transfers(payload: InventoryDecisionRequest) -> InventoryDecisionResponse:
+    if USE_MOCK_AI:
+        return InventoryDecisionResponse()
+    async with httpx.AsyncClient(timeout=AI_EVALUATION_TIMEOUT_SECONDS) as client:
+        response = await client.post(f"{AI_SERVICE_URL}/inventory/decide", json=payload.model_dump())
+        response.raise_for_status()
+        return InventoryDecisionResponse.model_validate(response.json())
 
 
 async def extract_utterance(

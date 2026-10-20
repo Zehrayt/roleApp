@@ -1,10 +1,14 @@
 import base64
+import io
 import unittest
+import wave
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 from modules.speech import (
     GeminiSpeechToTextProvider,
     GeminiTextToSpeechProvider,
+    GroqTextToSpeechProvider,
     SpeechRateLimitError,
 )
 
@@ -129,6 +133,67 @@ class GeminiTextToSpeechProviderTests(unittest.TestCase):
         self.assertEqual(
             call["generation_config"]["speech_config"], [{"voice": "Kore"}]
         )
+
+
+class GroqTextToSpeechProviderTests(unittest.TestCase):
+    def test_coach_vocal_direction_is_sent_to_groq(self):
+        response = SimpleNamespace(content=b"RIFFaudio", raise_for_status=lambda: None)
+        client = Mock()
+        client.post.return_value = response
+        provider = GroqTextToSpeechProvider("", client=client)
+
+        provider.synthesize("Take your time.", voice="daniel", style="[gravelly] [authoritatively]")
+
+        self.assertEqual(client.post.call_args.kwargs["json"]["voice"], "daniel")
+        self.assertEqual(
+            client.post.call_args.kwargs["json"]["input"],
+            "[gravelly] [authoritatively] Take your time.",
+        )
+
+    def test_direction_does_not_push_text_over_orpheus_limit(self):
+        response = SimpleNamespace(content=b"RIFFaudio", raise_for_status=lambda: None)
+        client = Mock()
+        client.post.return_value = response
+        provider = GroqTextToSpeechProvider("", client=client)
+        long_text = "A" * 190
+
+        provider.synthesize(long_text, voice="daniel", style="[gravelly] [authoritatively]")
+
+        self.assertEqual(client.post.call_args.kwargs["json"]["input"], long_text)
+
+    def test_streaming_wav_has_usable_duration(self):
+        pcm = b"\x00\x00" * 24000
+        streaming_wav = (
+            b"RIFF\xff\xff\xff\xffWAVEfmt "
+            + (16).to_bytes(4, "little")
+            + b"\x01\x00\x01\x00"
+            + (24000).to_bytes(4, "little")
+            + (48000).to_bytes(4, "little")
+            + b"\x02\x00\x10\x00data\xff\xff\xff\xff"
+            + pcm
+        )
+        response = SimpleNamespace(content=streaming_wav, raise_for_status=lambda: None)
+        client = Mock()
+        client.post.return_value = response
+        provider = GroqTextToSpeechProvider("", client=client)
+
+        result = provider.synthesize("Hello", voice="daniel")
+
+        with wave.open(io.BytesIO(result.audio), "rb") as reader:
+            self.assertEqual(reader.getnframes(), 24000)
+            self.assertEqual(reader.getframerate(), 24000)
+
+    def test_legacy_character_voices_remain_distinct(self):
+        response = SimpleNamespace(content=b"RIFFaudio", raise_for_status=lambda: None)
+        client = Mock()
+        client.post.return_value = response
+        provider = GroqTextToSpeechProvider("", client=client)
+
+        for old_voice, expected in (("Kore", "diana"), ("Leda", "hannah"), ("Puck", "austin"), ("Gacrux", "daniel")):
+            with self.subTest(old_voice=old_voice):
+                result = provider.synthesize("Hello", voice=old_voice)
+                self.assertEqual(result.voice, expected)
+                self.assertEqual(client.post.call_args.kwargs["json"]["voice"], expected)
 
 
 if __name__ == "__main__":

@@ -64,13 +64,11 @@ export interface PropSpec {
   location: string;
   /** Concept id inside that vocabulary file. */
   concept: string;
-  /** Turkish name shown as a hint. */
-  nameTr: string;
   blocks: BlockPos[];
 }
 
 export interface Portal {
-  /** Text on the interaction prompt, e.g. "Stüdyoya gir". */
+  /** Text on the interaction prompt, e.g. "Enter studio". */
   label: string;
   href: string;
 }
@@ -80,7 +78,7 @@ export interface Activity {
   id: "dub";
   /** Text on the interaction prompt. */
   label: string;
-  /** Key that opens it (besides E), shown on the prompt. */
+  /** Key that opens it (besides Enter), shown on the prompt. */
   key: string;
   /** Blocks the player must stand next to (e.g. the CD shelves). */
   anchors: BlockPos[];
@@ -223,9 +221,9 @@ export function buildTown(seed = 20261012): TownDefinition {
 
   const buildings: BuildingSpec[] = [];
 
-  // Fırın — Negotiation Table (backend scenario: bakery / baker)
+  // Bakery — Negotiation Table (backend scenario: bakery / baker)
   buildings.push(placeBuilding(world, {
-    id: "bakery", name: "Fırın", nameEn: "Bakery",
+    id: "bakery", name: "Bakery", nameEn: "Bakery",
     x0: 4, z0: 4, w: 10, d: 8,
     wall: Block.PLASTER, roof: Block.ROOF, floor: Block.PLANKS,
     door: { x: 8, z: 11 },
@@ -238,9 +236,9 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.set(12, 2, 10, Block.LEAVES); // potted plant
   world.fill(8, GROUND_Y, 12, 8, GROUND_Y, 18, Block.COBBLE);
 
-  // Kütüphane — Smart Reading Scrolls (library / librarian)
+  // Library — Smart Reading Scrolls (library / librarian)
   buildings.push(placeBuilding(world, {
-    id: "library", name: "Kütüphane", nameEn: "Library",
+    id: "library", name: "Library", nameEn: "Library",
     x0: 26, z0: 4, w: 10, d: 8,
     wall: Block.BRICK, roof: Block.DARK, floor: Block.PLANKS,
     door: { x: 30, z: 11 },
@@ -252,9 +250,9 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.fill(33, 2, 8, 33, 2, 9, Block.SHELF);
   world.fill(30, GROUND_Y, 12, 30, GROUND_Y, 18, Block.COBBLE);
 
-  // Dinleme Köşesi — Shadowing Studio (cafe / barista)
+  // Listening Corner — Shadowing Studio (cafe / barista)
   buildings.push(placeBuilding(world, {
-    id: "cafe", name: "Dinleme Köşesi", nameEn: "Café",
+    id: "cafe", name: "Listening Corner", nameEn: "Café",
     x0: 4, z0: 26, w: 10, d: 8,
     wall: Block.PLANKS, roof: Block.ROOF, floor: Block.DARK,
     door: { x: 8, z: 26 },
@@ -267,16 +265,16 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.set(5, 2, 31, Block.PLANKS);
   world.fill(8, GROUND_Y, 21, 8, GROUND_Y, 25, Block.COBBLE);
 
-  // Kaset & CD dükkânı — "Dub the Scene": pick a scene from the CD racks, then record.
+  // Cassette & CD shop — "Dub the Scene": pick a scene from the CD racks, then record.
   // Racks on the west and north walls so their CD faces point at the default camera.
   const cdShelves = [...blockRange(28, 2, 28, 28, 3, 31), ...blockRange(31, 2, 27, 33, 3, 27)];
   buildings.push(placeBuilding(world, {
-    id: "studio", name: "Kaset & CD", nameEn: "Dub Shop",
+    id: "studio", name: "Cassette & CD", nameEn: "Dub Shop",
     x0: 27, z0: 26, w: 8, d: 7,
     wall: Block.BRICK, roof: Block.DARK, floor: Block.DARK,
     door: { x: 30, z: 26 },
     windows: [{ x: 28, z: 26 }, { x: 32, z: 26 }, { x: 33, z: 26 }],
-    activity: { id: "dub", label: "Film seçenekleri", key: "K", anchors: cdShelves },
+    activity: { id: "dub", label: "Choose a scene", key: "K", anchors: cdShelves },
   }));
   for (const b of cdShelves) world.set(b.x, b.y, b.z, Block.CD_SHELF);
   world.set(32, 2, 31, Block.DARK); // shop counter
@@ -292,13 +290,13 @@ export function buildTown(seed = 20261012): TownDefinition {
 
   const npcs: NpcSpec[] = [
     {
-      id: "maya", name: "Maya", title: "Fırıncı", location: "bakery", npcRole: "baker", voice: "cafeNpc",
+      id: "maya", name: "Maya", title: "Baker", location: "bakery", npcRole: "baker", voice: "cafeNpc",
       buildingId: "bakery", cell: { x: 9, z: 6 },
       greeting: "Good morning! The croissants just came out of the oven.",
       look: { shirt: "#c96a3c", pants: "#5b4636", skin: "#d8a27a", hair: "#2b1b12", eye: "#3a2a1a", apron: true, hat: "#f7f4ec" },
     },
     {
-      id: "lina", name: "Lina", title: "Kütüphaneci", location: "library", npcRole: "librarian", voice: "librarian",
+      id: "lina", name: "Lina", title: "Librarian", location: "library", npcRole: "librarian", voice: "librarian",
       buildingId: "library", cell: { x: 31, z: 7 },
       greeting: "Shh… looking for something to read today?",
       look: { shirt: "#5a4a8c", pants: "#2d2a3a", skin: "#f0c9a6", hair: "#b3562e", eye: "#2e5e3a" },
@@ -312,15 +310,15 @@ export function buildTown(seed = 20261012): TownDefinition {
   ];
 
   const props: PropSpec[] = [
-    { id: "bakery-counter", buildingId: "bakery", location: "bakery", concept: "counter", nameTr: "tezgâh", blocks: blockRange(6, 2, 7, 11, 2, 7) },
-    { id: "bakery-oven", buildingId: "bakery", location: "bakery", concept: "oven", nameTr: "fırın (ocak)", blocks: blockRange(11, 2, 5, 12, 3, 5) },
-    { id: "bakery-plant", buildingId: "bakery", location: "bakery", concept: "plant", nameTr: "saksı bitkisi", blocks: [{ x: 12, y: 2, z: 10 }] },
-    { id: "library-bookcase", buildingId: "library", location: "library", concept: "bookcase", nameTr: "kitaplık", blocks: blockRange(27, 2, 5, 34, 4, 5) },
-    { id: "library-table", buildingId: "library", location: "library", concept: "table", nameTr: "masa", blocks: blockRange(28, 2, 8, 29, 2, 8) },
-    { id: "library-chair", buildingId: "library", location: "library", concept: "chair", nameTr: "sandalye", blocks: [{ x: 28, y: 2, z: 9 }] },
-    { id: "cafe-table", buildingId: "cafe", location: "cafe", concept: "table", nameTr: "masa", blocks: [{ x: 6, y: 2, z: 29 }, { x: 6, y: 2, z: 31 }] },
-    { id: "cafe-chair", buildingId: "cafe", location: "cafe", concept: "chair", nameTr: "sandalye", blocks: [{ x: 5, y: 2, z: 29 }, { x: 5, y: 2, z: 31 }] },
-    { id: "cafe-counter", buildingId: "cafe", location: "cafe", concept: "counter", nameTr: "tezgâh", blocks: blockRange(10, 2, 31, 12, 2, 31) },
+    { id: "bakery-counter", buildingId: "bakery", location: "bakery", concept: "counter", blocks: blockRange(6, 2, 7, 11, 2, 7) },
+    { id: "bakery-oven", buildingId: "bakery", location: "bakery", concept: "oven", blocks: blockRange(11, 2, 5, 12, 3, 5) },
+    { id: "bakery-plant", buildingId: "bakery", location: "bakery", concept: "plant", blocks: [{ x: 12, y: 2, z: 10 }] },
+    { id: "library-bookcase", buildingId: "library", location: "library", concept: "bookcase", blocks: blockRange(27, 2, 5, 34, 4, 5) },
+    { id: "library-table", buildingId: "library", location: "library", concept: "table", blocks: blockRange(28, 2, 8, 29, 2, 8) },
+    { id: "library-chair", buildingId: "library", location: "library", concept: "chair", blocks: [{ x: 28, y: 2, z: 9 }] },
+    { id: "cafe-table", buildingId: "cafe", location: "cafe", concept: "table", blocks: [{ x: 6, y: 2, z: 29 }, { x: 6, y: 2, z: 31 }] },
+    { id: "cafe-chair", buildingId: "cafe", location: "cafe", concept: "chair", blocks: [{ x: 5, y: 2, z: 29 }, { x: 5, y: 2, z: 31 }] },
+    { id: "cafe-counter", buildingId: "cafe", location: "cafe", concept: "counter", blocks: blockRange(10, 2, 31, 12, 2, 31) },
   ];
 
   return { world, buildings, npcs, props, spawn: { x: 8, z: 15 } };

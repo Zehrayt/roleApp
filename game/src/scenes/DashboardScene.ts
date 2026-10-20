@@ -52,7 +52,7 @@ export class DashboardScene extends Phaser.Scene {
     this.panel = this.add.dom(640, 360).createFromHTML(`
       <section class="progress-dashboard" aria-label="Learning progress dashboard">
         <header class="progress-header">
-          <div><strong>PRAGLISH JOURNAL</strong><span>MY LEARNING ADVENTURE</span></div>
+          <div><strong>ROLEAPP JOURNAL</strong><span>MY LEARNING ADVENTURE</span></div>
           <button type="button" class="paper-close" data-action="close">P / ESC · CLOSE</button>
         </header>
         <nav class="paper-tabs" aria-label="Dashboard pages">

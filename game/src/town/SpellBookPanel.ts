@@ -8,16 +8,16 @@ type Filter = "all" | SpellBookStatus;
 
 /** Status label + shape so colour is never the only signal (roleApp 16.4). */
 const STATUS: Record<SpellBookStatus, { label: string; mark: string; hint: string }> = {
-  red: { label: "Kırmızı", mark: "●", hint: "Zorlanıyorsun; NPC'ler bu kelimeyi kullanacak" },
-  yellow: { label: "Sarı", mark: "▲", hint: "Tekrar etmeye değer" },
-  new: { label: "Yeni", mark: "○", hint: "Yeni karşılaştın" },
-  green: { label: "Yeşil", mark: "✓", hint: "Oturuyor" },
+  red: { label: "Red", mark: "●", hint: "You're struggling with this word; characters may use it again" },
+  yellow: { label: "Yellow", mark: "▲", hint: "Worth practicing again" },
+  new: { label: "New", mark: "○", hint: "Recently encountered" },
+  green: { label: "Green", mark: "✓", hint: "You're getting the hang of it" },
 };
 
 const PLACE: Record<string, string> = {
-  bakery: "Fırın",
-  library: "Kütüphane",
-  cafe: "Dinleme Köşesi",
+  bakery: "Bakery",
+  library: "Library",
+  cafe: "Listening Corner",
 };
 
 export interface SpellBookEvents {
@@ -42,22 +42,22 @@ export class SpellBookPanel {
     this.root = document.createElement("section");
     this.root.className = "town-book";
     this.root.hidden = true;
-    this.root.setAttribute("aria-label", "Büyü Kitabı");
+    this.root.setAttribute("aria-label", "Spell Book");
     this.root.innerHTML = `
       <header class="town-book__head">
         <div>
           <p class="town-book__eyebrow">Spell Book</p>
-          <h2 class="town-book__title">Büyü Kitabı</h2>
+          <h2 class="town-book__title">Spell Book</h2>
         </div>
-        <button type="button" class="town-dialogue__close" aria-label="Kapat">Kapat <kbd>Esc</kbd></button>
+        <button type="button" class="town-dialogue__close" aria-label="Close">Close <kbd>Esc</kbd></button>
       </header>
       <p class="town-book__summary" data-summary></p>
-      <div class="town-book__filters" role="group" aria-label="Duruma göre süz">
-        <button type="button" data-filter="all" aria-pressed="true">Hepsi</button>
-        <button type="button" data-filter="red" aria-pressed="false">● Kırmızı</button>
-        <button type="button" data-filter="yellow" aria-pressed="false">▲ Sarı</button>
-        <button type="button" data-filter="new" aria-pressed="false">○ Yeni</button>
-        <button type="button" data-filter="green" aria-pressed="false">✓ Yeşil</button>
+      <div class="town-book__filters" role="group" aria-label="Filter by status">
+        <button type="button" data-filter="all" aria-pressed="true">All</button>
+        <button type="button" data-filter="red" aria-pressed="false">● Red</button>
+        <button type="button" data-filter="yellow" aria-pressed="false">▲ Yellow</button>
+        <button type="button" data-filter="new" aria-pressed="false">○ New</button>
+        <button type="button" data-filter="green" aria-pressed="false">✓ Green</button>
       </div>
       <ol class="town-book__list" aria-live="polite"></ol>
       <p class="town-dialogue__status" role="status"></p>`;
@@ -93,7 +93,7 @@ export class SpellBookPanel {
 
   open(api: PraglishApiClient): void {
     this.root.hidden = false;
-    this.status.textContent = "Yükleniyor…";
+    this.status.textContent = "Loading…";
     this.root.querySelector<HTMLButtonElement>(".town-dialogue__close")?.focus();
     void api.getSpellBook()
       .then((entries) => {
@@ -102,7 +102,7 @@ export class SpellBookPanel {
         this.render();
       })
       .catch((error: unknown) => {
-        this.status.textContent = error instanceof Error ? error.message : "Büyü Kitabı yüklenemedi";
+        this.status.textContent = error instanceof Error ? error.message : "Could not load the Spell Book";
       });
   }
 
@@ -118,7 +118,7 @@ export class SpellBookPanel {
     const counts = { red: 0, yellow: 0, new: 0, green: 0 };
     for (const e of this.entries) counts[e.status]++;
     this.summary.textContent = this.entries.length
-      ? `${this.entries.length} kelime · ${counts.red} kırmızı · ${counts.yellow} sarı · ${counts.green} yeşil`
+      ? `${this.entries.length} words · ${counts.red} red · ${counts.yellow} yellow · ${counts.green} green`
       : "";
 
     const shown = this.filter === "all" ? this.entries : this.entries.filter((e) => e.status === this.filter);
@@ -127,8 +127,8 @@ export class SpellBookPanel {
       const empty = document.createElement("li");
       empty.className = "town-book__empty";
       empty.textContent = this.entries.length
-        ? "Bu durumda kelime yok."
-        : "Henüz kelime yok. NPC'lerle İngilizce konuş ya da binalardaki nesnelere dokun; zorlandığın ve doğru kullandığın kelimeler burada birikir.";
+        ? "No words have this status yet."
+        : "No words yet. Speak English with characters or examine objects in buildings. Words you practice will appear here.";
       this.list.append(empty);
       return;
     }
@@ -156,7 +156,7 @@ export class SpellBookPanel {
     bar.setAttribute("aria-valuemin", "0");
     bar.setAttribute("aria-valuemax", "100");
     bar.setAttribute("aria-valuenow", String(e.struggle_score));
-    bar.setAttribute("aria-label", `Zorlanma ${Math.round(e.struggle_score)}/100`);
+    bar.setAttribute("aria-label", `Difficulty ${Math.round(e.struggle_score)}/100`);
     const fill = document.createElement("i");
     fill.style.width = `${Math.max(2, Math.min(100, e.struggle_score))}%`;
     bar.append(fill);
@@ -166,9 +166,9 @@ export class SpellBookPanel {
     const fails = e.meaning_fails + e.usage_fails + e.pronunciation_fails;
     const places = e.sources.map((s) => PLACE[s] ?? s).join(", ");
     facts.textContent = [
-      `zorlanma ${Math.round(e.struggle_score)}`,
-      fails ? `${fails} zorlanma anı` : null,
-      e.active_successes ? `${e.active_successes} doğru kullanım` : null,
+      `difficulty ${Math.round(e.struggle_score)}`,
+      fails ? `${fails} struggles` : null,
+      e.active_successes ? `${e.active_successes} correct uses` : null,
       places || null,
     ].filter(Boolean).join(" · ");
 

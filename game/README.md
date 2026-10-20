@@ -1,72 +1,55 @@
-# roleApp Game Client
+# RoleApp game client
 
-`index.html` first opens a three-card mode selector:
+The Vite entry point, `index.html`, opens an English three-card selector:
 
-- **Roleplay:** Explore the block town and practice everyday English with Maya, Lina and Leo. Open directly with `?mode=roleplay`.
-- **Macera:** Open the same town with a three-step quest journal. Accepted conversations with Maya, Lina, and Leo unlock the next quest in order. Progress is saved in this browser. This is the prologue; later combat chapters are not implemented yet. Open directly with `?mode=adventure`.
-- **Dub the Scene:** Open the Kaset & CD shop to record lines over a scene. Open directly with `?open=dub`.
+- **Roleplay** — everyday conversations in the three.js block town (`?mode=roleplay`).
+- **Adventure** — the same town with a three-step, server-persisted quest chain (`?mode=adventure`).
+- **Dub the Scene** — voice a character in a film scene (`?open=dub`).
 
-The town uses three.js and the Praglish API. The old Phaser page remains at `studio.html?scene=...` for deep links; opening `studio.html` without a scene now returns to mode selection. Mode artwork is original AI-generated block-world illustration.
-## Run with Docker
+The town contains Maya's bakery, Lina's library, Leo's café, and the Cassette & CD dubbing shop. The old Phaser page at `studio.html?scene=...` remains for deep links; the town and opening cards are the current player flow. Combat and later story chapters are not implemented.
 
-Docker is the recommended way to run the complete application. It does not
-require a local Node.js installation:
+## Run
 
-```bash
-docker compose up --build
-```
+The full Docker stack is described in the [root README](../README.md). It runs Vite on <http://localhost:5173> and connects to the API at <http://localhost:8000>.
 
-Open `http://localhost:5173` after the services are ready.
-
-## Run the client locally
-
-Node.js 20 or newer is required only when developing the client outside Docker:
+For frontend-only development, use Node.js 24:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-The client expects the API at `http://localhost:8000` by default. To use a
-different endpoint, define `window.PRAGLISH_API_BASE_URL` before the game script
-loads.
+The client reads `window.PRAGLISH_API_BASE_URL` when supplied before its script loads; otherwise it calls `http://localhost:8000`. That runtime variable name is retained for compatibility. For UI work without the real API, start `npm run dev:mock-api` in another terminal. The mock returns fixed speech text and a silent WAV, so it cannot verify real AI or audio quality.
 
-For interface-only development without Docker or Python, run the mock API in a
-separate terminal:
+## Town controls
 
-```bash
-npm run dev:mock-api
-```
+| Input | Action |
+|---|---|
+| Click floor, arrow keys, or `W`/`A`/`S`/`D` | Move |
+| `T` near a character | Talk |
+| `F` near an object | Name it in English |
+| `E` | Inventory |
+| `G` in Adventure | Quest journal |
+| `B` | Spell Book |
+| `P` | Progress Journal |
+| `K` near CD shelves | Dubbing shop |
+| `Enter` near an activity or portal | Interact |
+| `Esc` | Close the active panel |
 
-The mock server follows the same session, turn, vocabulary, and speech contracts
-as the FastAPI service, but it is not real AI. Speech recognition returns a fixed
-sample sentence and speech synthesis returns a valid silent WAV. Run the AI
-container with a configured provider key for real STT and TTS.
+Keyboard shortcuts do not run while typing in a conversation field. The microphone uses browser `getUserMedia` and `MediaRecorder`; use localhost or HTTPS.
 
-## Controls
+## Adventure inventory
 
-- Click the floor to move with A* pathfinding.
-- Press `E` near an NPC to start a conversation, or near an object to open the
-  vocabulary panel.
-- Use the microphone button in a conversation to record speech. The client sends
-  the recording to `/api/speech/stt` and plays the NPC response from
-  `/api/speech/tts`.
-- Press `Esc` to close a conversation or vocabulary panel.
-- Press `B` to open the spell book and `P` to open the progress dashboard.
-- In Macera mode, press `G` to open the quest journal.
-- Use **Mod seçimi** in the town HUD to return to the opening cards.
+The API decides when items enter or leave the player inventory after an accepted Adventure exchange. The UI displays the server's item IDs, English names, and quantities in a nine-slot hotbar plus at least 27 bag slots. Hovering over an occupied slot shows its name and quantity.
+
+Known item IDs map to SVGs in `public/assets/inventory/`, including the boat-building handbook. Every other item uses `item.svg` as a generic fallback; it does not need a new image to appear in inventory. There is no runtime image generator. Adventure progress and inventory persist on the server; dubbing completion uses browser `localStorage`.
 
 ## Validation
 
 ```bash
 npm run typecheck
-npm run test
+npm test
 npm run build
 ```
 
-The Maya and Lina dialogue panels use the API session and turn flow. AI replies,
-corrections, and rewards appear in the same panel. Microphone input relies on the
-browser `getUserMedia` and `MediaRecorder` APIs and works only in a secure context,
-such as `http://localhost` or HTTPS.
-
-The player sprite sheet was produced for this project using a CC0 sheet layout as a reference; attribution details are in `public/assets/characters/SOURCE.md`.
+The player sprite sheet's attribution details are in `public/assets/characters/SOURCE.md`.

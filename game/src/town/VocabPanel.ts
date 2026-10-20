@@ -33,19 +33,19 @@ export class VocabPanel {
     this.root = document.createElement("section");
     this.root.className = "town-dialogue town-vocab";
     this.root.hidden = true;
-    this.root.setAttribute("aria-label", "Kelime alıştırması");
+    this.root.setAttribute("aria-label", "Vocabulary practice");
     this.root.innerHTML = `
       <header class="town-dialogue__head">
-        <div><strong data-title></strong><span>Bu İngilizcede ne?</span></div>
-        <button type="button" class="town-dialogue__close" aria-label="Kapat">Kapat <kbd>Esc</kbd></button>
+        <div><strong data-title></strong><span>What's this in English?</span></div>
+        <button type="button" class="town-dialogue__close" aria-label="Close">Close <kbd>Esc</kbd></button>
       </header>
       <p class="town-vocab__hint" data-hint></p>
       <p class="town-vocab__meter" data-meter></p>
       <div class="town-dialogue__messages town-vocab__messages" aria-live="polite"></div>
       <p class="town-dialogue__status" role="status"></p>
       <form class="town-dialogue__form">
-        <input type="text" maxlength="60" autocomplete="off" placeholder="İngilizce adı…" aria-label="Nesnenin İngilizce adı" />
-        <button type="submit" class="town-dialogue__send">Dene</button>
+        <input type="text" maxlength="60" autocomplete="off" placeholder="English name…" aria-label="English name of the object" />
+        <button type="submit" class="town-dialogue__send">Try</button>
       </form>`;
     container.appendChild(this.root);
 
@@ -82,11 +82,11 @@ export class VocabPanel {
   open(prop: PropSpec, api: PraglishApiClient): void {
     this.prop = prop;
     this.api = api;
-    this.title.textContent = "Kelime avı";
-    this.hint.textContent = `İpucu: Türkçesi "${prop.nameTr}".`;
+    this.title.textContent = "Word Hunt";
+    this.hint.textContent = "Hint: Look at the highlighted object in the scene.";
     this.meter.textContent = "";
     this.messages.replaceChildren();
-    this.status.textContent = "Yükleniyor…";
+    this.status.textContent = "Loading…";
     this.root.hidden = false;
     this.input.value = "";
     this.input.focus();
@@ -106,10 +106,10 @@ export class VocabPanel {
       const entries = await api.getVocabularyProgress();
       if (this.prop !== prop) return;
       this.renderMeter(entries.find((e) => e.concept === prop.concept));
-      if (initial) this.status.textContent = "Nesnenin İngilizce adını yaz";
+      if (initial) this.status.textContent = "Type the object's English name";
     } catch (error: unknown) {
       if (this.prop !== prop || !initial) return;
-      this.status.textContent = error instanceof Error ? error.message : "İlerleme yüklenemedi";
+      this.status.textContent = error instanceof Error ? error.message : "Could not load progress";
     }
   }
 
@@ -122,8 +122,8 @@ export class VocabPanel {
     const total = entry.words.length;
     const found = earned.map((w) => w.word).join(", ");
     this.meter.textContent = entry.completed
-      ? `Tamamlandı: ${found}`
-      : `${earned.length}/${total} kelime bulundu${found ? `: ${found}` : ""}. Eş anlamlıları da sayılır.`;
+      ? `Complete: ${found}`
+      : `${earned.length}/${total} words found${found ? `: ${found}` : ""}. Synonyms count too.`;
   }
 
   private async submit(): Promise<void> {
@@ -138,8 +138,8 @@ export class VocabPanel {
       const result = await api.submitVocabulary(prop.concept, word);
       this.renderResult(prop, api, word, result);
     } catch (error: unknown) {
-      this.append(error instanceof Error ? error.message : "Gönderilemedi.", "error");
-      this.status.textContent = "Bağlantı hatası · API çalışıyor mu?";
+      this.append(error instanceof Error ? error.message : "Could not send your answer.", "error");
+      this.status.textContent = "Connection error · Is the API running?";
     } finally {
       this.setBusy(false);
       this.input.focus();
@@ -148,20 +148,20 @@ export class VocabPanel {
 
   private renderResult(prop: PropSpec, api: PraglishApiClient, word: string, r: VocabularySubmitResponse): void {
     if (!r.matched) {
-      this.append(`"${word}" olmadı. Tekrar dene.`, "bad");
-      this.status.textContent = "İpucu: tek kelime ya da kısa bir ad yeterli";
+      this.append(`"${word}" isn't a match. Try again.`, "bad");
+      this.status.textContent = "Hint: One word or a short name is enough";
       return;
     }
     const progress = r.words_total !== undefined && r.words_earned !== undefined
       ? ` (${r.words_earned}/${r.words_total})`
       : "";
     if (r.already_earned) {
-      this.append(`"${word}" doğru, bunu zaten bulmuştun${progress}.`, "known");
+      this.append(`"${word}" is correct. You already found it${progress}.`, "known");
     } else {
-      this.append(`Doğru! "${word}" · +${r.reward_coins} jeton${progress}`, "good");
+      this.append(`Correct! "${word}" · +${r.reward_coins} coins${progress}`, "good");
     }
     const completed = r.concept_completed === true;
-    this.status.textContent = completed ? "Bu nesnenin bütün kelimelerini buldun." : "Başka bir karşılığı var mı?";
+    this.status.textContent = completed ? "You found every word for this object." : "Can you think of another name?";
     this.events.onProgress(prop, completed);
     void this.loadProgress(prop, api);
   }
@@ -170,7 +170,7 @@ export class VocabPanel {
     const row = document.createElement("div");
     row.className = `town-dialogue__msg is-vocab-${kind}`;
     const who = document.createElement("strong");
-    who.textContent = kind === "user" ? "SEN" : "OYUN";
+    who.textContent = kind === "user" ? "YOU" : "GAME";
     const body = document.createElement("span");
     body.textContent = text;
     row.append(who, body);
@@ -181,6 +181,6 @@ export class VocabPanel {
   private setBusy(busy: boolean): void {
     this.input.disabled = busy;
     this.send.disabled = busy;
-    this.send.textContent = busy ? "…" : "Dene";
+    this.send.textContent = busy ? "…" : "Try";
   }
 }

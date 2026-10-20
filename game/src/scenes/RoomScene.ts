@@ -331,7 +331,7 @@ export class RoomScene extends Phaser.Scene {
   }
 
   private createUi(): void {
-    this.add.text(24, 22, "PRAGLISH · BAKERY", {
+    this.add.text(24, 22, "ROLEAPP · BAKERY", {
       fontFamily: "Arial Black, Arial, sans-serif",
       fontSize: "22px",
       color: "#ffd166",
@@ -486,7 +486,7 @@ export class RoomScene extends Phaser.Scene {
   private tryInteract(): void {
     this.dialogue.setVisible(true);
     this.dialogueInput.focus();
-    this.dialogueStatus.textContent = "Connecting to Praglish…";
+    this.dialogueStatus.textContent = "Connecting to RoleApp…";
     void this.api.startSession()
       .then(() => {
         this.dialogueStatus.textContent = "Connected · English practice mode";
@@ -587,7 +587,11 @@ export class RoomScene extends Phaser.Scene {
       this.currentNpcAudio = audio;
       audio.addEventListener("ended", () => URL.revokeObjectURL(url));
       await audio.play();
-    } catch {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Speech could not be played.";
+      this.appendMessage("SYSTEM", message, "error", false);
+      this.dialogueStatus.textContent = "Speech failed · see conversation";
+      console.error("NPC speech failed", error);
     }
   }
 

@@ -4,15 +4,15 @@ import { ADVENTURE_STEPS, migrateAdventureStageV1, nextAdventureStage } from "..
 describe("adventure quest progression", () => {
   it("unlocks only the next quest after its matching event", () => {
     expect(ADVENTURE_STEPS).toHaveLength(3);
-    expect(nextAdventureStage(0, "talk:lina")).toBe(0);
-    expect(nextAdventureStage(0, "talk:maya")).toBe(1);
-    expect(nextAdventureStage(1, "talk:maya")).toBe(1);
-    expect(nextAdventureStage(1, "talk:lina")).toBe(2);
+    expect(nextAdventureStage(0, "inventory:boat_manual")).toBe(0);
+    expect(nextAdventureStage(0, "inventory:provisions")).toBe(1);
+    expect(nextAdventureStage(1, "inventory:provisions")).toBe(1);
+    expect(nextAdventureStage(1, "inventory:boat_manual")).toBe(2);
     expect(nextAdventureStage(2, "talk:leo")).toBe(3);
   });
 
   it("stays complete after the final quest", () => {
-    expect(nextAdventureStage(ADVENTURE_STEPS.length, "talk:maya")).toBe(ADVENTURE_STEPS.length);
+    expect(nextAdventureStage(ADVENTURE_STEPS.length, "inventory:provisions")).toBe(ADVENTURE_STEPS.length);
   });
 
   it("preserves old journal progress after removing the vocabulary quest", () => {

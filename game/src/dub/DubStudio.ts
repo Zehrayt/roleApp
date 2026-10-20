@@ -11,7 +11,7 @@ import "./dub.css";
  * Dub the Scene ("Listen & Repeat"), moved out of Phaser (formerly
  * scenes/DubScene.ts). The screens are the same DOM as before; they are now
  * mounted in a full-screen overlay that the block town opens from the
- * Dublaj Stüdyosu building. Progress keys in localStorage are unchanged.
+ * Dubbing Studio building. Progress keys in localStorage are unchanged.
  */
 
 
@@ -108,7 +108,7 @@ export class DubStudio {
     this.overlay.className = "dub-overlay";
     this.overlay.hidden = true;
     this.overlay.setAttribute("role", "dialog");
-    this.overlay.setAttribute("aria-label", "Dublaj Stüdyosu");
+    this.overlay.setAttribute("aria-label", "Dubbing Studio");
     this.stage = document.createElement("div");
     this.stage.className = "dub-stage";
     this.overlay.append(this.stage);
@@ -157,19 +157,19 @@ export class DubStudio {
     } catch {
       this.availableScripts = [];
       if (this.screen === "start") {
-        this.setStatus("Sahneler yüklenemedi. Oyun sunucusuna bağlanılamadı.", true);
+        this.setStatus("Scenes could not be loaded. Could not connect to the game server.", true);
         const shelf = this.panel?.querySelector<HTMLElement>('[data-role="shelf"]');
         if (shelf) {
           const message = document.createElement("p");
           message.className = "dub-shop__empty";
-          message.textContent = "Bağlantı kurulamadı.";
+          message.textContent = "Could not connect.";
           const retry = document.createElement("button");
           retry.type = "button";
           retry.className = "dub-shop__btn";
-          retry.textContent = "Tekrar dene";
+          retry.textContent = "Try again";
           retry.addEventListener("click", () => {
             this.setStatus("");
-            shelf.replaceChildren(document.createTextNode("Raf yükleniyor…"));
+            shelf.replaceChildren(document.createTextNode("Loading shelf…"));
             void this.loadScripts();
           });
           shelf.replaceChildren(message, retry);
@@ -320,7 +320,7 @@ export class DubStudio {
     const scripts = this.availableScripts;
     if (scripts.length === 0) {
       shelf.replaceChildren();
-      info.innerHTML = `<p class="dub-shop__empty">Rafta henüz sahne yok.</p>`;
+      info.innerHTML = `<p class="dub-shop__empty">No scenes are on the shelf yet.</p>`;
       return;
     }
     this.shelfIndex = Math.max(0, Math.min(scripts.length - 1, this.shelfIndex));
@@ -374,8 +374,8 @@ export class DubStudio {
       <p class="dub-shop__title">${this.escapeHtml(script.title)} <span>· ${this.shelfIndex + 1}/${scripts.length}</span></p>
       <p class="dub-shop__hint">${
         this.pickingCharacter
-          ? "Hangi karakteri seslendireceksin? ← → seç, <kbd>Boşluk</kbd> ile stüdyoya geç."
-          : `${script.lines.length} replik · ${script.characters.length} karakter. <kbd>Boşluk</kbd> ile bu sahneyi seç.`
+          ? "Which character will you voice? Use ← → to choose, then press <kbd>Space</kbd> to enter the studio."
+          : `${script.lines.length} lines · ${script.characters.length} characters. Press <kbd>Space</kbd> to choose this scene.`
       }</p>
       <div class="dub-shop__cast">${pills}</div>`;
     info.querySelectorAll<HTMLButtonElement>("[data-character-index]").forEach((btn) => {
@@ -539,18 +539,18 @@ export class DubStudio {
     const node = this.mount(`
       <div class="dub-shop">
         <header class="dub-shop__head">
-          <button type="button" class="dub-shop__btn" data-action="exit">&larr; Menü</button>
-          <div class="dub-shop__sign"><strong>KASET &amp; CD</strong><span>Bir sahne seç, karakterini seslendir</span></div>
-          <button type="button" class="dub-shop__btn" data-action="open-journal">Günlük</button>
+          <button type="button" class="dub-shop__btn" data-action="exit">&larr; Menu</button>
+          <div class="dub-shop__sign"><strong>CASSETTE &amp; CD</strong><span>Choose a scene and voice your character</span></div>
+          <button type="button" class="dub-shop__btn" data-action="open-journal">Journal</button>
         </header>
         <div class="dub-shop__status" data-role="status"></div>
         <div class="dub-shop__rack">
-          <button type="button" class="dub-shop__arrow" data-action="prev" aria-label="Önceki sahne">&#9664;</button>
-          <div class="dub-shop__shelf" data-role="shelf"><p class="dub-shop__empty">Raf yükleniyor…</p></div>
-          <button type="button" class="dub-shop__arrow" data-action="next" aria-label="Sonraki sahne">&#9654;</button>
+          <button type="button" class="dub-shop__arrow" data-action="prev" aria-label="Previous scene">&#9664;</button>
+          <div class="dub-shop__shelf" data-role="shelf"><p class="dub-shop__empty">Loading shelf…</p></div>
+          <button type="button" class="dub-shop__arrow" data-action="next" aria-label="Next scene">&#9654;</button>
         </div>
         <div class="dub-shop__info" data-role="info"></div>
-        <footer class="dub-shop__keys"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> gez · <kbd>Boşluk</kbd> seç · <kbd>Esc</kbd> geri</footer>
+        <footer class="dub-shop__keys"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> browse · <kbd>Space</kbd> select · <kbd>Esc</kbd> back</footer>
       </div>
     `, () => this.exitToModeSelect());
     node.querySelector('[data-action="open-journal"]')?.addEventListener("click", () => this.renderJournal());
@@ -623,7 +623,7 @@ export class DubStudio {
       `
       <section class="progress-dashboard dub-journal-dashboard" aria-label="Progress journal">
         <header class="progress-header">
-          <div><strong>PRAGLISH JOURNAL</strong><span>MY LEARNING ADVENTURE</span></div>
+          <div><strong>ROLEAPP JOURNAL</strong><span>MY LEARNING ADVENTURE</span></div>
           <button type="button" class="paper-close" data-action="exit">CLOSE</button>
         </header>
         <div class="paper-book">
@@ -754,8 +754,10 @@ export class DubStudio {
         audio.play().catch(() => resolve());
       });
       URL.revokeObjectURL(url);
-    } catch {
-      this.setStatus("Audio could not be prepared, but you can still repeat the line.");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Speech could not be generated or played.";
+      this.setStatus(message);
+      console.error("Dubbing speech failed", error);
     }
   }
 

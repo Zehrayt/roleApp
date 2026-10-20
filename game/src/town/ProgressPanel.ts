@@ -17,18 +17,18 @@ export class ProgressPanel {
     this.root.hidden = true;
     this.root.setAttribute("role", "dialog");
     this.root.setAttribute("aria-modal", "true");
-    this.root.setAttribute("aria-label", "Gelişim Defteri");
+    this.root.setAttribute("aria-label", "Progress Journal");
     this.root.innerHTML = `
       <div class="progress-dashboard">
         <header class="progress-header">
-          <div><strong>GELİŞİM DEFTERİ</strong><span>ÖĞRENME YOLCULUĞUM</span></div>
-          <button type="button" class="paper-close" data-action="close">KAPAT · ESC</button>
+          <div><strong>PROGRESS JOURNAL</strong><span>MY LEARNING JOURNEY</span></div>
+          <button type="button" class="paper-close" data-action="close">CLOSE · ESC</button>
         </header>
-        <nav class="paper-tabs" aria-label="Defter sayfaları">
-          <button type="button" data-page="overview">PROFİL</button>
-          <button type="button" data-page="grammar">DİLBİLGİSİ</button>
-          <button type="button" data-page="vocabulary">KELİMELER</button>
-          <button type="button" data-page="idioms">DEYİMLER</button>
+        <nav class="paper-tabs" aria-label="Journal pages">
+          <button type="button" data-page="overview">PROFILE</button>
+          <button type="button" data-page="grammar">GRAMMAR</button>
+          <button type="button" data-page="vocabulary">WORDS</button>
+          <button type="button" data-page="idioms">IDIOMS</button>
         </nav>
         <div class="paper-book" data-dashboard-content aria-live="polite"></div>
       </div>`;
@@ -54,7 +54,7 @@ export class ProgressPanel {
 
   open(): void {
     this.root.hidden = false;
-    this.content.innerHTML = '<div class="paper-empty">Defter açılıyor…</div>';
+    this.content.innerHTML = '<div class="paper-empty">Opening journal…</div>';
     this.root.querySelector<HTMLButtonElement>("[data-action='close']")?.focus();
     void this.api.getDashboard().then((data) => {
       if (!this.isOpen) return;
@@ -62,7 +62,7 @@ export class ProgressPanel {
       this.renderPage();
     }).catch((error: unknown) => {
       if (!this.isOpen) return;
-      this.content.textContent = error instanceof Error ? error.message : "Defter yüklenemedi.";
+      this.content.textContent = error instanceof Error ? error.message : "Could not load the journal.";
       this.content.classList.add("paper-empty");
     });
   }

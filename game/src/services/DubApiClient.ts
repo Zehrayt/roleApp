@@ -88,7 +88,11 @@ export class DubApiClient {
         signal: controller.signal,
       });
       if (!response.ok) {
-        throw new DubApiError(`Text-to-speech failed (${response.status})`, response.status);
+        const body: unknown = await response.json().catch(() => null);
+        const detail = body && typeof body === "object" && "detail" in body && typeof body.detail === "string"
+          ? body.detail
+          : `HTTP ${response.status}`;
+        throw new DubApiError(`Speech could not be generated: ${detail}`, response.status);
       }
       return await response.blob();
     } catch (error: unknown) {

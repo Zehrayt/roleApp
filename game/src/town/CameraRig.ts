@@ -33,7 +33,7 @@ export class CameraRig {
     return this.mode === "iso" ? this.ortho : this.perspective;
   }
 
-  /** Azimuth the camera is turning to; used to map WASD to grid steps. */
+  /** Azimuth the camera is turning to; used to map movement keys to grid steps. */
   get heading(): number {
     return this.azimuthTarget;
   }

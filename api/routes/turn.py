@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 from core.auth import authenticated_user
 from core.database import SessionLocal, get_db
 from models.models import Dialogue, GameSession, LearningTurnEvent, User
-from services.ai_client import evaluate_and_respond, extract_utterance
+from services.adventure_inventory import apply_inventory_transfers, inventory_snapshot
+from services.ai_client import decide_inventory_transfers, evaluate_and_respond, extract_utterance
 from services.dialogue_history import build_evaluator_history
 from services.extraction_eligibility import should_extract_after_turn
 from services.learning_analytics import LearningAnalyticsService
@@ -19,6 +20,8 @@ from shared.schemas import (
     EvaluateRequest,
     EvaluateResponse,
     ExtractionRequest,
+    InventoryDecisionRequest,
+    InventoryDecisionResponse,
     RewardInfo,
 )
 
@@ -122,6 +125,23 @@ async def process_turn(
 
     result = await evaluate_and_respond(payload)
 
+    inventory_decision = InventoryDecisionResponse()
+    if session.mode == "adventure" and result.accepted and result.response_speaker == "npc":
+        try:
+            inventory_decision = await decide_inventory_transfers(
+                InventoryDecisionRequest(
+                    location=session.location,
+                    npc_role=session.npc_role,
+                    player_text=request.user_text,
+                    npc_reply=result.npc_response,
+                    previous_dialogue=dialogue_history[-6:],
+                    inventory=inventory_snapshot(db, session.user_id),
+                )
+            )
+        except Exception:
+            logger.exception("Groq inventory judgment failed for session %s", session.id)
+            result.adventure_notice = "Inventory could not be checked right now. You can try this exchange again."
+
 
 
 
@@ -153,14 +173,35 @@ async def process_turn(
             focus_words=focus_words,
         )
 
+    npc_dialogue: Dialogue | None = None
     if result.response_speaker == "npc":
-        db.add(
-            Dialogue(
-                session_id=session.id,
-                speaker="npc",
-                text=result.npc_response,
-            )
+        npc_dialogue = Dialogue(
+            session_id=session.id,
+            speaker="npc",
+            text=result.npc_response,
         )
+        db.add(npc_dialogue)
+        db.flush()
+
+    if session.mode == "adventure":
+        # Serialize stage changes for this player, including simultaneous sessions.
+        player = (
+            db.query(User)
+            .filter(User.id == session.user_id)
+            .populate_existing()
+            .with_for_update()
+            .one()
+        )
+        if npc_dialogue is not None and inventory_decision.transfers:
+            result.inventory_changes = apply_inventory_transfers(
+                db, player, npc_dialogue, inventory_decision.transfers,
+                location=session.location,
+                npc_role=session.npc_role,
+            )
+        if result.accepted and result.response_speaker == "npc":
+            if player.adventure_stage == 2 and session.location == "cafe":
+                player.adventure_stage = 3
+        result.adventure_stage = player.adventure_stage
 
 
 

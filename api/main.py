@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from core.migrate import upgrade_database
-from routes import analytics, dub, leaderboard, session, speech, spellbook, turn, user, vocabulary
+from routes import adventure, analytics, dub, leaderboard, session, speech, spellbook, turn, user, vocabulary
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -56,6 +56,7 @@ app.include_router(speech.router, prefix="/api/speech", tags=["speech"])
 app.include_router(dub.router, prefix="/api/dub", tags=["dub"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(spellbook.router, prefix="/api/spellbook", tags=["spellbook"])
+app.include_router(adventure.router, prefix="/api/adventure", tags=["adventure"])
 
 
 @app.on_event("startup")

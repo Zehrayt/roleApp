@@ -11,6 +11,7 @@ import { paintBlockAtlas } from "./textures";
 import { SpellBookPanel } from "./SpellBookPanel";
 import { ProgressPanel } from "./ProgressPanel";
 import { AdventureJournal } from "./AdventureJournal";
+import { InventoryPanel } from "./InventoryPanel";
 import { VocabPanel } from "./VocabPanel";
 import {
   buildTown,
@@ -81,6 +82,7 @@ export class TownGame {
   private readonly spellBook: SpellBookPanel;
   private readonly progressPanel: ProgressPanel;
   private readonly adventureJournal: AdventureJournal | null;
+  private readonly inventoryPanel: InventoryPanel;
   private readonly adventureMode = new URLSearchParams(window.location.search).get("mode") === "adventure";
   private readonly dubStudio: DubStudio;
   private readonly apis = new Map<string, PraglishApiClient>();
@@ -99,7 +101,7 @@ export class TownGame {
   private segmentT = 0;
   private pendingTalk: NpcRuntime | null = null;
   private interaction: Interaction | null = null;
-  private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | null = null;
+  private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | InventoryPanel | null = null;
   private nearestProp: PropSpec | null = null;
   private pendingProp: PropSpec | null = null;
   private pendingActivity: BuildingSpec | null = null;
@@ -182,7 +184,9 @@ export class TownGame {
     });
     this.spellBook = new SpellBookPanel(host, { onClose: () => this.panelClosed(this.spellBook) });
     this.progressPanel = new ProgressPanel(host, () => this.panelClosed(this.progressPanel));
-    this.adventureJournal = this.adventureMode ? new AdventureJournal(host, () => this.openAdventure(), () => this.panelClosed(this.adventureJournal)) : null;
+    this.adventureJournal = this.adventureMode ? new AdventureJournal(host, () => this.openAdventure(), () => this.panelClosed(this.adventureJournal), () => this.openInventory()) : null;
+    this.inventoryPanel = new InventoryPanel(host, () => this.panelClosed(this.inventoryPanel));
+    void this.refreshPlayerState();
     this.dubStudio = new DubStudio(host, {
       onExit: () => {
         this.host.classList.remove("is-talking");
@@ -276,24 +280,25 @@ export class TownGame {
     hud.innerHTML = `
       <div class="town-brand">
         <p class="town-brand__eyebrow">roleApp</p>
-        <h1 class="town-brand__title">Kasaba</h1>
-        <p class="town-brand__hint">Yürümek için zemine dokun · NPC'ye yaklaşıp <kbd>E</kbd></p>
+        <h1 class="town-brand__title">Town</h1>
+        <p class="town-brand__hint">Click the ground to walk · Approach a character and press <kbd>T</kbd></p>
       </div>
-      <nav class="town-links" aria-label="Diğer modlar">
-        <button class="town-btn town-btn--book" type="button" data-act="book">Büyü Kitabı<kbd>B</kbd></button>
-        <button class="town-btn" type="button" data-act="progress">Gelişim defteri</button>
-        ${this.adventureMode ? `<button class="town-btn" type="button" data-act="adventure">Görevler</button>` : ""}
-        <a class="town-btn" href="./">Mod seçimi</a>
+      <nav class="town-links" aria-label="Game navigation">
+        <button class="town-btn town-btn--book" type="button" data-act="book">Spell Book<kbd>B</kbd></button>
+        <button class="town-btn" type="button" data-act="progress">Progress Journal</button>
+        <button class="town-btn town-btn--inventory" type="button" data-act="inventory">Inventory<kbd>E</kbd></button>
+        ${this.adventureMode ? `<button class="town-btn" type="button" data-act="adventure">Quests</button>` : ""}
+        <a class="town-btn" href="./">Choose Mode</a>
       </nav>
       <div class="town-stats" data-town-stats aria-hidden="true"></div>
       <div class="town-actions">
-        <div class="town-controls" role="toolbar" aria-label="Kamera">
-          <button class="town-btn" data-act="rotL" title="Sola döndür (Q)">↺<kbd>Q</kbd></button>
-          <button class="town-btn" data-act="rotR" title="Sağa döndür (R)">↻<kbd>R</kbd></button>
-          <button class="town-btn" data-act="zoomOut" title="Uzaklaş">−</button>
-          <button class="town-btn" data-act="zoomIn" title="Yakınlaş">+</button>
-          <button class="town-btn" data-act="mode-iso" aria-pressed="true">İzometrik</button>
-          <button class="town-btn" data-act="mode-perspective" aria-pressed="false">Perspektif</button>
+        <div class="town-controls" role="toolbar" aria-label="Camera">
+          <button class="town-btn" data-act="rotL" title="Rotate left (Q)">↺<kbd>Q</kbd></button>
+          <button class="town-btn" data-act="rotR" title="Rotate right (R)">↻<kbd>R</kbd></button>
+          <button class="town-btn" data-act="zoomOut" title="Zoom out">−</button>
+          <button class="town-btn" data-act="zoomIn" title="Zoom in">+</button>
+          <button class="town-btn" data-act="mode-iso" aria-pressed="true">Isometric</button>
+          <button class="town-btn" data-act="mode-perspective" aria-pressed="false">Perspective</button>
         </div>
         <div class="town-prompts">
           <button class="town-prompt" type="button" hidden></button>
@@ -313,6 +318,7 @@ export class TownGame {
         else if (act === "mode-perspective") this.setCameraMode("perspective");
         else if (act === "book") this.openSpellBook();
         else if (act === "progress") this.openProgress();
+        else if (act === "inventory") this.openInventory();
         else if (act === "adventure") this.openAdventure();
       });
     });
@@ -359,11 +365,19 @@ export class TownGame {
       const k = e.key.toLowerCase();
       // The dub shop handles its own keys (←/→, Space, Esc) while it is open.
       if (this.dubStudio.isOpen) return;
-      if (k === "escape") this.activePanel?.close();
-      else if (k === "e" || k === "enter") this.interact();
+      // A disabled dialogue input loses focus while waiting for the NPC. Keep
+      // world shortcuts inactive whenever any panel is open, regardless of focus.
+      if (this.activePanel) {
+        if (k === "escape") this.activePanel.close();
+        else if (k === "e" && this.activePanel === this.inventoryPanel) this.inventoryPanel.close();
+        return;
+      }
+      if (k === "t" && this.interaction?.kind === "npc") this.interact();
+      else if (k === "enter") this.interact();
       else if (k === "f" && this.nearestProp) this.openVocab(this.nearestProp);
       else if (k === "b") this.openSpellBook();
       else if (k === "p") this.openProgress();
+      else if (k === "e") this.inventoryPanel.isOpen ? this.inventoryPanel.close() : this.openInventory();
       else if (k === "g" && this.adventureJournal) this.openAdventure();
       else if (k === "k" && this.interaction?.kind === "activity") this.interact();
       else if (k === "q") this.rig.rotate(-1);
@@ -561,7 +575,7 @@ export class TownGame {
     if (existing) return existing;
     const npc = this.town.npcs.find((n) => n.location === location);
     if (!npc) return null;
-    const api = new PraglishApiClient({ location, npcRole: npc.npcRole, npcName: npc.name });
+    const api = new PraglishApiClient({ location, npcRole: npc.npcRole, npcName: npc.name, mode: this.adventureMode ? "adventure" : "roleplay" });
     this.apis.set(location, api);
     return api;
   }
@@ -604,7 +618,29 @@ export class TownGame {
     this.adventureJournal.open();
   }
 
-  private panelClosed(panel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | null): void {
+  private openInventory(): void {
+    if (this.activePanel && this.activePanel !== this.inventoryPanel) this.activePanel.close();
+    this.activePanel = this.inventoryPanel;
+    this.keys.clear();
+    this.path = [];
+    this.host.classList.add("is-talking");
+    this.inventoryPanel.open();
+  }
+
+  private async refreshPlayerState(): Promise<void> {
+    const api = this.apiFor("bakery");
+    if (!api) return;
+    try {
+      const state = await api.getAdventureState();
+      this.adventureJournal?.setState(state);
+      this.inventoryPanel.setItems(state.inventory);
+    } catch {
+      this.adventureJournal?.setError("Could not load quests. Refresh the page and try again.");
+      this.inventoryPanel.setError("Could not load inventory. Refresh the page and try again.");
+    }
+  }
+
+  private panelClosed(panel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | InventoryPanel | null): void {
     if (panel && this.activePanel === panel) {
       this.activePanel = null;
       this.host.classList.remove("is-talking");
@@ -653,11 +689,19 @@ export class TownGame {
     if (!npc.panel) {
       npc.panel = new DialoguePanel(npc.spec, api, this.host, {
         onReply: (text, speaker, seconds) => {
-          npc.bubbleText.textContent = speaker === "coach" ? `(Koç) ${text}` : text;
+          npc.bubbleText.textContent = speaker === "coach" ? `(Coach) ${text}` : text;
           npc.replyUntil = performance.now() + seconds * 1000;
           if (speaker === "npc") npc.character.talk(seconds, performance.now());
         },
-        onAcceptedTurn: () => this.adventureJournal?.record(`talk:${npc.spec.id}` as "talk:maya" | "talk:lina" | "talk:leo"),
+        onAcceptedTurn: (result) => {
+          if (result.adventure_stage !== null && result.adventure_stage !== undefined) {
+            this.adventureJournal?.setStage(result.adventure_stage);
+          }
+          if (result.inventory_changes?.length) {
+            this.adventureJournal?.addItems(result.inventory_changes);
+            this.inventoryPanel.addItems(result.inventory_changes);
+          }
+        },
         onClose: () => this.panelClosed(npc.panel),
       });
     }
@@ -778,8 +822,8 @@ export class TownGame {
     this.vocabPrompt.hidden = !vocabTarget || this.vocabPanel.isOpen;
     if (vocabTarget) {
       this.vocabPrompt.textContent = this.completedProps.has(vocabTarget.id)
-        ? "F · Bu ne? (tamamlandı)"
-        : "F · Bu İngilizcede ne?";
+        ? "F · What's this? (complete)"
+        : "F · What's this in English?";
     }
 
     const it = this.interaction;
@@ -787,10 +831,10 @@ export class TownGame {
     this.prompt.hidden = !showPrompt;
     if (it && showPrompt) {
       this.prompt.textContent = it.kind === "npc"
-        ? `E · ${it.npc.spec.name} ile konuş`
+        ? `T · Talk to ${it.npc.spec.name}`
         : it.building.activity
           ? `${it.building.activity.key} · ${it.building.activity.label}`
-          : `E · ${it.building.portal?.label ?? "Gir"}`;
+          : `Enter · ${it.building.portal?.label ?? "Enter"}`;
     }
   }
 
@@ -828,9 +872,9 @@ export class TownGame {
     this.fpsTime = 0;
     this.fpsFrames = 0;
     this.statsTime = 0;
-    const nf = new Intl.NumberFormat("tr-TR");
+    const nf = new Intl.NumberFormat("en-US");
     this.stats.textContent =
-      `${nf.format(this.blockCount)} blok · ${nf.format(this.faceCount)} yüz · ` +
-      `${this.renderer.info.render.calls} çizim · ${fps} fps`;
+      `${nf.format(this.blockCount)} blocks · ${nf.format(this.faceCount)} faces · ` +
+      `${this.renderer.info.render.calls} draw calls · ${fps} fps`;
   }
 }

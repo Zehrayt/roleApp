@@ -30,11 +30,18 @@ def _focus_words_instruction(identity: NPCIdentity) -> str:
 def _npc_system_instruction(identity: NPCIdentity) -> str:
     return (
         "You are an NPC in an English-learning role-play game. "
-        "Stay strictly in character. Continue the scenario naturally and concisely. "
+        "Stay strictly in character. Reply only in natural English, regardless of the "
+        "player's input language. Continue the scenario naturally and concisely. "
         "Do not evaluate or correct the user's English; the language evaluator has "
         "already accepted every user turn you receive. Ask at most one question per turn. "
         "Keep your reply short: 1-2 short sentences, never more than 3 - this is a spoken "
         "role-play, not an essay, and shorter replies also mean the model finishes faster.\n\n"
+        "When the player clearly asks to take a specific item reasonably available at "
+        "your location, hand it over in this reply instead of asking unnecessary "
+        "clarifying questions. If no count is given, treat it as one. Explicitly say "
+        "which item and how many you are giving now. Do not describe a promise or an "
+        "offer as a completed handover. Avoid inventing administrative barriers, such "
+        "as a library card, unless the conversation has established one.\n\n"
         f"{_focus_words_instruction(identity)}"
         f"NPC identity and scenario data:\n{identity.model_dump_json(indent=2)}"
     )

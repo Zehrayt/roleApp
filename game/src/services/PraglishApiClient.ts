@@ -24,6 +24,20 @@ export interface TurnResponse {
   rewards: RewardInfo | null;
   /** Spell Book words the NPC used in npc_response (highlighted in the panel). */
   used_focus_words?: string[];
+  adventure_stage?: number | null;
+  inventory_changes?: InventoryEntry[];
+  adventure_notice?: string | null;
+}
+
+export interface InventoryEntry {
+  item_id: string;
+  name: string;
+  quantity: number;
+}
+
+export interface AdventureState {
+  stage: number;
+  inventory: InventoryEntry[];
 }
 
 export interface TtsVoiceProfile {
@@ -33,20 +47,20 @@ export interface TtsVoiceProfile {
 
 export const ROLEPLAY_TTS_PROFILES = {
   librarian: {
-    voice: "Kore",
+    voice: "diana",
     style: "Speak naturally and warmly as a patient, knowledgeable female librarian at a relaxed conversational pace.",
   },
   cafeNpc: {
-    voice: "Leda",
+    voice: "hannah",
     style: "Speak as a sweet, cheerful young woman working in a cafe. Sound friendly, bright, and natural at a relaxed conversational pace.",
   },
   barista: {
-    voice: "Puck",
+    voice: "austin",
     style: "Speak as a friendly, laid-back young man working as a barista. Sound upbeat and natural at a relaxed conversational pace.",
   },
   coach: {
-    voice: "Gacrux",
-    style: "Speak as a deep, resonant, mature older man. Sound calm, authoritative, strong, supportive, and very clear at a measured pace.",
+    voice: "austin",
+    style: "[calm] [confidently] [professionally]",
   },
 } as const satisfies Record<string, TtsVoiceProfile>;
 
@@ -126,6 +140,7 @@ export interface PraglishSessionConfig {
   location: string;
   npcRole: string;
   npcName: string;
+  mode?: "roleplay" | "adventure";
 }
 
 const DEFAULT_SESSION_CONFIG: PraglishSessionConfig = {
@@ -173,6 +188,11 @@ export class PraglishApiClient {
     return this.request<TurnResponse>(`/api/session/${sessionId}/turn`, {
       user_text: userText,
     });
+  }
+
+  public async getAdventureState(): Promise<AdventureState> {
+    await this.startSession();
+    return this.requestGet<AdventureState>("/api/adventure/state");
   }
 
   public async submitVocabulary(concept: string, word: string): Promise<VocabularySubmitResponse> {
@@ -249,7 +269,11 @@ export class PraglishApiClient {
         signal: controller.signal,
       });
       if (!response.ok) {
-        throw new ApiError(`Text-to-speech failed (${response.status})`, response.status);
+        const body: unknown = await response.json().catch(() => null);
+        const detail = body && typeof body === "object" && "detail" in body && typeof body.detail === "string"
+          ? body.detail
+          : `HTTP ${response.status}`;
+        throw new ApiError(`Speech could not be generated: ${detail}`, response.status);
       }
       return await response.blob();
     } catch (error: unknown) {
@@ -269,6 +293,7 @@ export class PraglishApiClient {
       ...credentials,
       location: this.config.location,
       npc_role: this.config.npcRole,
+      mode: this.config.mode ?? "roleplay",
     });
     this.userId = response.user_id;
     return response.session_id;

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from typing import Literal
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -15,6 +16,7 @@ class SessionStartRequest(BaseModel):
     password: str
     location: str
     npc_role: str  # orn: "baker"
+    mode: Literal["roleplay", "adventure"] = "roleplay"
 
 
 @router.post("/start")
@@ -37,6 +39,7 @@ def start_session(request: SessionStartRequest, db: Session = Depends(get_db)):
         user_id=user.id,
         location=request.location,
         npc_role=request.npc_role,
+        mode=request.mode,
         scenario_state=initial_state,
     )
     db.add(new_session)

@@ -60,8 +60,14 @@ async def text_to_speech(payload: TTSRequest, _user: User = Depends(authenticate
     try:
         audio_bytes, extra_headers = await synthesize_speech(payload)
     except httpx.HTTPStatusError as error:
+        try:
+            upstream_body = error.response.json()
+            upstream_detail = upstream_body.get("detail") if isinstance(upstream_body, dict) else None
+        except ValueError:
+            upstream_detail = None
         raise HTTPException(
-            status_code=502, detail=f"Text-to-speech service error: {error}"
+            status_code=424 if error.response.status_code == 424 else 502,
+            detail=upstream_detail if isinstance(upstream_detail, str) else f"Text-to-speech service error (HTTP {error.response.status_code})",
         ) from error
     except httpx.HTTPError as error:
         raise HTTPException(

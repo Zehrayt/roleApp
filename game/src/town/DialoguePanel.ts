@@ -12,7 +12,7 @@ export interface DialoguePanelEvents {
   /** A reply arrived; `seconds` is a rough reading/speaking time for the speech bubble. */
   onReply(text: string, speaker: DialogueSpeaker, seconds: number): void;
   onClose(): void;
-  onAcceptedTurn?(): void;
+  onAcceptedTurn?(result: TurnResponse): void;
 }
 
 type MessageKind = "user" | "npc" | "feedback" | "reward" | "error";
@@ -51,18 +51,18 @@ export class DialoguePanel {
     this.root = document.createElement("section");
     this.root.className = "town-dialogue";
     this.root.hidden = true;
-    this.root.setAttribute("aria-label", `${npc.name} ile konuşma`);
+    this.root.setAttribute("aria-label", `Conversation with ${npc.name}`);
     this.root.innerHTML = `
       <header class="town-dialogue__head">
         <div><strong data-name></strong><span data-title></span></div>
-        <button type="button" class="town-dialogue__close" aria-label="Konuşmayı kapat">Kapat <kbd>Esc</kbd></button>
+        <button type="button" class="town-dialogue__close" aria-label="Close conversation">Close <kbd>Esc</kbd></button>
       </header>
       <div class="town-dialogue__messages" aria-live="polite"></div>
       <p class="town-dialogue__status" role="status"></p>
       <form class="town-dialogue__form">
-        <input type="text" maxlength="240" autocomplete="off" placeholder="İngilizce yaz…" />
-        <button type="button" class="town-dialogue__mic" aria-label="Sesli mesaj kaydet">${MIC_ICON}</button>
-        <button type="submit" class="town-dialogue__send">Gönder</button>
+        <input type="text" maxlength="240" autocomplete="off" placeholder="Write in English…" />
+        <button type="button" class="town-dialogue__mic" aria-label="Record a voice message">${MIC_ICON}</button>
+        <button type="submit" class="town-dialogue__send">Send</button>
       </form>`;
     container.appendChild(this.root);
 
@@ -79,7 +79,7 @@ export class DialoguePanel {
     this.input = q("input");
     this.send = q(".town-dialogue__send");
     this.mic = q(".town-dialogue__mic");
-    this.input.setAttribute("aria-label", `${npc.name} için İngilizce mesaj`);
+    this.input.setAttribute("aria-label", `English message to ${npc.name}`);
 
     q<HTMLButtonElement>(".town-dialogue__close").addEventListener("click", () => this.close());
     this.mic.addEventListener("click", () => void this.toggleRecording());
@@ -108,13 +108,13 @@ export class DialoguePanel {
   open(): void {
     this.root.hidden = false;
     this.input.focus();
-    this.status.textContent = "Bağlanıyor…";
+    this.status.textContent = "Connecting…";
     void this.api.startSession()
       .then(() => {
-        this.status.textContent = "Bağlandı · İngilizce konuş ya da yaz";
+        this.status.textContent = "Connected · Speak or write in English";
       })
       .catch((error: unknown) => {
-        this.status.textContent = error instanceof Error ? error.message : "Bağlantı kurulamadı";
+        this.status.textContent = error instanceof Error ? error.message : "Could not connect";
       });
   }
 
@@ -132,16 +132,16 @@ export class DialoguePanel {
     const text = this.input.value.trim();
     if (!text || this.send.disabled) return;
     this.input.value = "";
-    this.append("SEN", text, "user");
+    this.append("YOU", text, "user");
     this.setBusy(true);
-    this.status.textContent = `${this.npc.name} düşünüyor…`;
+    this.status.textContent = `${this.npc.name} is thinking…`;
     try {
       const result = await this.api.sendTurn(text);
       this.renderResult(result);
-      this.status.textContent = result.accepted ? "Kabul edildi · devam et" : "Önerilen düzeltmeyi dene";
+      this.status.textContent = result.accepted ? "Accepted · Keep going" : "Try the suggested correction";
     } catch (error: unknown) {
-      this.append("SİSTEM", error instanceof Error ? error.message : "Bir şeyler ters gitti.", "error");
-      this.status.textContent = "Bağlantı hatası · API çalışıyor mu?";
+      this.append("SYSTEM", error instanceof Error ? error.message : "Something went wrong.", "error");
+      this.status.textContent = "Connection error · Is the API running?";
     } finally {
       this.setBusy(false);
       this.input.focus();
@@ -151,19 +151,23 @@ export class DialoguePanel {
   private renderResult(result: TurnResponse): void {
     const coach = result.response_speaker === "coach";
     this.append(
-      coach ? "KOÇ" : this.npc.name.toUpperCase(),
+      coach ? "COACH" : this.npc.name.toUpperCase(),
       result.npc_response,
       coach ? "feedback" : "npc",
       true,
       result.used_focus_words ?? [],
     );
     if (!result.accepted && result.correction && result.correction !== result.npc_response) {
-      this.append("ÖNERİ", result.correction, "feedback");
+      this.append("SUGGESTION", result.correction, "feedback");
     }
     if (result.rewards && (result.rewards.gained_xp > 0 || result.rewards.gained_coins > 0)) {
-      this.append("ÖDÜL", `+${result.rewards.gained_xp} XP · +${result.rewards.gained_coins} jeton`, "reward");
+      this.append("REWARD", `+${result.rewards.gained_xp} XP · +${result.rewards.gained_coins} coins`, "reward");
     }
-    if (result.accepted) this.events.onAcceptedTurn?.();
+    for (const change of result.inventory_changes ?? []) {
+      this.append("INVENTORY", `${change.quantity > 0 ? "+" : ""}${change.quantity} ${change.name}`, "reward");
+    }
+    if (result.adventure_notice) this.append("SYSTEM", result.adventure_notice, "error");
+    if (result.accepted) this.events.onAcceptedTurn?.(result);
     const seconds = Math.min(12, 2.5 + result.npc_response.split(/\s+/).length * 0.35);
     this.events.onReply(result.npc_response, coach ? "coach" : "npc", seconds);
     void this.speak(result.npc_response, coach);
@@ -182,8 +186,11 @@ export class DialoguePanel {
       this.audio = audio;
       audio.addEventListener("ended", () => URL.revokeObjectURL(url));
       await audio.play();
-    } catch {
-      // Text is already on screen; speech is optional (no TTS key, autoplay blocked, offline).
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Speech could not be generated or played.";
+      this.append("SYSTEM", message, "error", false);
+      this.status.textContent = "Speech error · See the conversation";
+      console.error("NPC speech failed", error);
     }
   }
 
@@ -194,7 +201,7 @@ export class DialoguePanel {
     }
     if (this.send.disabled || this.mic.disabled) return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      this.status.textContent = "Bu tarayıcı mikrofonu desteklemiyor.";
+      this.status.textContent = "This browser does not support a microphone.";
       return;
     }
     try {
@@ -213,10 +220,10 @@ export class DialoguePanel {
       this.recording = true;
       this.mic.innerHTML = STOP_ICON;
       this.mic.classList.add("is-recording");
-      this.mic.setAttribute("aria-label", "Kaydı durdur ve gönder");
-      this.status.textContent = "Kaydediliyor… bitince durdur ya da Gönder'e bas.";
+      this.mic.setAttribute("aria-label", "Stop recording and send");
+      this.status.textContent = "Recording… Stop when finished or press Send.";
     } catch {
-      this.status.textContent = "Mikrofon izni verilmedi.";
+      this.status.textContent = "Microphone permission was denied.";
     }
   }
 
@@ -225,29 +232,29 @@ export class DialoguePanel {
     this.recording = false;
     this.mic.innerHTML = MIC_ICON;
     this.mic.classList.remove("is-recording");
-    this.mic.setAttribute("aria-label", "Sesli mesaj kaydet");
+    this.mic.setAttribute("aria-label", "Record a voice message");
   }
 
   private async handleRecording(mimeType: string): Promise<void> {
     const blob = new Blob(this.chunks, { type: mimeType });
     this.chunks = [];
     if (blob.size === 0) {
-      this.status.textContent = "Ses alınamadı, tekrar dene.";
+      this.status.textContent = "No audio was captured. Try again.";
       return;
     }
     this.mic.disabled = true;
-    this.status.textContent = "Yazıya çevriliyor…";
+    this.status.textContent = "Transcribing…";
     try {
       const { text } = await this.api.transcribeAudio(blob);
       if (!text.trim()) {
-        this.status.textContent = "Bir şey duyulmadı, tekrar dene.";
+        this.status.textContent = "Nothing was heard. Try again.";
         return;
       }
       this.input.value = text;
       await this.submitTurn();
     } catch (error: unknown) {
-      this.append("SİSTEM", error instanceof Error ? error.message : "Konuşma tanınamadı.", "error");
-      this.status.textContent = "Konuşma tanınamadı.";
+      this.append("SYSTEM", error instanceof Error ? error.message : "Speech was not recognized.", "error");
+      this.status.textContent = "Speech was not recognized.";
     } finally {
       this.mic.disabled = false;
     }
@@ -258,7 +265,7 @@ export class DialoguePanel {
     if (remembered.length === 0) {
       const hint = document.createElement("p");
       hint.className = "town-dialogue__empty";
-      hint.textContent = `${this.npc.name}'ya İngilizce bir şey söyleyerek başla. Örnek: "Hi! What do you recommend today?"`;
+      hint.textContent = `Start by saying something to ${this.npc.name} in English. For example: "Hi! What do you recommend today?"`;
       this.messages.append(hint);
       return;
     }
@@ -288,7 +295,7 @@ export class DialoguePanel {
   private setBusy(busy: boolean): void {
     this.input.disabled = busy;
     this.send.disabled = busy;
-    this.send.textContent = busy ? "…" : "Gönder";
+    this.send.textContent = busy ? "…" : "Send";
   }
 }
 
@@ -310,7 +317,7 @@ function fillWithFocusWords(el: HTMLElement, text: string, words: readonly strin
     if (start > last) el.append(text.slice(last, start));
     const mark = document.createElement("mark");
     mark.className = "town-focus";
-    mark.title = "Büyü Kitabı'ndaki kelimen";
+    mark.title = "A word from your Spell Book";
     mark.textContent = match[0];
     el.append(mark);
     last = start + match[0].length;

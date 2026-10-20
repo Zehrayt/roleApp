@@ -13,6 +13,7 @@ class User(Base):
     password_hash = Column(String, nullable=False)
     coins = Column(Integer, default=0)
     xp = Column(Integer, default=0)
+    adventure_stage = Column(Integer, nullable=False, default=0)
 
     sessions = relationship("GameSession", back_populates="user")
 
@@ -24,6 +25,7 @@ class GameSession(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     location = Column(String)
     npc_role = Column(String)
+    mode = Column(String, nullable=False, default="roleplay")
     scenario_state = Column(JSON, default=dict)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -48,6 +50,30 @@ class Dialogue(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     session = relationship("GameSession", back_populates="dialogues")
+
+
+class InventoryItem(Base):
+    __tablename__ = "inventory_items"
+    __table_args__ = (UniqueConstraint("user_id", "item_id", name="uq_inventory_user_item"),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    item_id = Column(String, nullable=False)
+    name = Column(String, nullable=True)
+    quantity = Column(Integer, nullable=False, default=0)
+
+
+class InventoryEvent(Base):
+    __tablename__ = "inventory_events"
+    __table_args__ = (UniqueConstraint("dialogue_id", "item_id", name="uq_inventory_dialogue_item"),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    dialogue_id = Column(Integer, ForeignKey("dialogues.id"), nullable=False)
+    item_id = Column(String, nullable=False)
+    delta = Column(Integer, nullable=False)
+    reason = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
 class VocabularyProgress(Base):
