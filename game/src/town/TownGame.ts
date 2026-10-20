@@ -177,7 +177,6 @@ export class TownGame {
     this.vocabPanel = new VocabPanel(host, {
       onProgress: (prop, completed) => {
         if (completed) this.completedProps.add(prop.id);
-        if (completed && prop.buildingId === "library") this.adventureJournal?.record("vocab:library");
       },
       onClose: () => this.panelClosed(this.vocabPanel),
     });

@@ -3,7 +3,7 @@
 `index.html` first opens a three-card mode selector:
 
 - **Roleplay:** Explore the block town and practice everyday English with Maya, Lina and Leo. Open directly with `?mode=roleplay`.
-- **Macera:** Open the same town with a four-step quest journal. Complete accepted NPC turns and a library vocabulary task in order to unlock the next quest. Progress is saved in this browser. This is the prologue; later combat chapters are not implemented yet. Open directly with `?mode=adventure`.
+- **Macera:** Open the same town with a three-step quest journal. Accepted conversations with Maya, Lina, and Leo unlock the next quest in order. Progress is saved in this browser. This is the prologue; later combat chapters are not implemented yet. Open directly with `?mode=adventure`.
 - **Dub the Scene:** Open the Kaset & CD shop to record lines over a scene. Open directly with `?open=dub`.
 
 The town uses three.js and the Praglish API. The old Phaser page remains at `studio.html?scene=...` for deep links; opening `studio.html` without a scene now returns to mode selection. Mode artwork is original AI-generated block-world illustration.

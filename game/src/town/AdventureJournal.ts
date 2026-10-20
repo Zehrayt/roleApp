@@ -1,17 +1,24 @@
 import { guestCredentials } from "../services/guestAuth";
-import { ADVENTURE_STEPS, nextAdventureStage, type AdventureEvent } from "./adventureProgress";
+import { ADVENTURE_STEPS, migrateAdventureStageV1, nextAdventureStage, type AdventureEvent } from "./adventureProgress";
 import "./adventure.css";
 
 export class AdventureJournal {
   private readonly root: HTMLElement;
   private readonly tracker: HTMLButtonElement;
   private readonly content: HTMLElement;
-  private readonly storageKey = `roleapp.adventure.${guestCredentials().username}.v1`;
+  private readonly storageKey = `roleapp.adventure.${guestCredentials().username}.v2`;
   private stage: number;
 
   constructor(container: HTMLElement, private readonly onOpen: () => void, private readonly onClose: () => void) {
-    const saved = Number(window.localStorage.getItem(this.storageKey));
-    this.stage = Number.isInteger(saved) && saved >= 0 && saved <= ADVENTURE_STEPS.length ? saved : 0;
+    const saved = window.localStorage.getItem(this.storageKey);
+    if (saved === null) {
+      const oldKey = this.storageKey.replace(/\.v2$/, ".v1");
+      this.stage = migrateAdventureStageV1(Number(window.localStorage.getItem(oldKey)));
+      window.localStorage.setItem(this.storageKey, String(this.stage));
+    } else {
+      const stage = Number(saved);
+      this.stage = Number.isInteger(stage) && stage >= 0 && stage <= ADVENTURE_STEPS.length ? stage : 0;
+    }
     this.tracker = document.createElement("button");
     this.tracker.type = "button";
     this.tracker.className = "adventure-tracker";
