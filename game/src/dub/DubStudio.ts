@@ -157,7 +157,23 @@ export class DubStudio {
     } catch {
       this.availableScripts = [];
       if (this.screen === "start") {
-        this.setStatus("Sahneler yüklenemedi. Sunucu çalışıyor mu? Sayfayı yenileyip tekrar dene.", true);
+        this.setStatus("Sahneler yüklenemedi. Oyun sunucusuna bağlanılamadı.", true);
+        const shelf = this.panel?.querySelector<HTMLElement>('[data-role="shelf"]');
+        if (shelf) {
+          const message = document.createElement("p");
+          message.className = "dub-shop__empty";
+          message.textContent = "Bağlantı kurulamadı.";
+          const retry = document.createElement("button");
+          retry.type = "button";
+          retry.className = "dub-shop__btn";
+          retry.textContent = "Tekrar dene";
+          retry.addEventListener("click", () => {
+            this.setStatus("");
+            shelf.replaceChildren(document.createTextNode("Raf yükleniyor…"));
+            void this.loadScripts();
+          });
+          shelf.replaceChildren(message, retry);
+        }
       }
     }
   }
