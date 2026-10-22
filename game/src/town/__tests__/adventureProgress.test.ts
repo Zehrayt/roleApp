@@ -1,22 +1,34 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { ADVENTURE_STEPS, migrateAdventureStageV1, nextAdventureStage } from "../adventureProgress";
+import { clampStage, questStatus } from "../adventureProgress";
 
 describe("adventure quest progression", () => {
-  it("unlocks only the next quest after its matching event", () => {
-    expect(ADVENTURE_STEPS).toHaveLength(3);
-    expect(nextAdventureStage(0, "inventory:boat_manual")).toBe(0);
-    expect(nextAdventureStage(0, "inventory:provisions")).toBe(1);
-    expect(nextAdventureStage(1, "inventory:provisions")).toBe(1);
-    expect(nextAdventureStage(1, "inventory:boat_manual")).toBe(2);
-    expect(nextAdventureStage(2, "talk:leo")).toBe(3);
+  it("keeps the server stage within the chapter", () => {
+    expect(clampStage(-1, 3)).toBe(0);
+    expect(clampStage(Number.NaN, 3)).toBe(0);
+    expect(clampStage(2, 3)).toBe(2);
+    expect(clampStage(7, 3)).toBe(3);
   });
 
-  it("stays complete after the final quest", () => {
-    expect(nextAdventureStage(ADVENTURE_STEPS.length, "inventory:provisions")).toBe(ADVENTURE_STEPS.length);
+  it("marks earlier quests done, the current one active, later ones locked", () => {
+    expect([0, 1, 2].map((index) => questStatus(index, 1))).toEqual(["done", "active", "locked"]);
+    expect([0, 1, 2].map((index) => questStatus(index, 3))).toEqual(["done", "done", "done"]);
+  });
+});
+
+describe("adventure content file", () => {
+  // In Docker the repo's api/game_data is mounted at /api/game_data; locally it sits next to game/.
+  const candidates = ["../api/game_data/adventure.json", "/api/game_data/adventure.json"];
+  const path = candidates.find((candidate) => {
+    try { readFileSync(candidate); return true; } catch { return false; }
   });
 
-  it("preserves old journal progress after removing the vocabulary quest", () => {
-    expect([0, 1, 2, 3, 4].map(migrateAdventureStageV1)).toEqual([0, 1, 1, 2, 3]);
-    expect(migrateAdventureStageV1(Number.NaN)).toBe(0);
+  it.skipIf(!path)("has the display fields the journal renders", () => {
+    const content = JSON.parse(readFileSync(path as string, "utf-8"));
+    expect(content.chapter.title).toBeTruthy();
+    expect(content.quests.length).toBeGreaterThan(0);
+    for (const quest of content.quests) {
+      expect(quest.id && quest.title && quest.place && quest.detail).toBeTruthy();
+    }
   });
 });

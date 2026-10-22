@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from core.migrate import upgrade_database
+from services.adventure_quests import load_adventure
 from routes import adventure, analytics, dub, leaderboard, session, speech, spellbook, turn, user, vocabulary
 
 logger = logging.getLogger("uvicorn.error")
@@ -61,8 +62,8 @@ app.include_router(adventure.router, prefix="/api/adventure", tags=["adventure"]
 
 @app.on_event("startup")
 def on_startup():
-
-
+    # Fail fast on a broken api/game_data/adventure.json instead of on the first quest turn.
+    load_adventure()
     upgrade_database()
 
 

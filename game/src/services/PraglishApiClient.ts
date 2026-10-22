@@ -35,9 +35,32 @@ export interface InventoryEntry {
   quantity: number;
 }
 
+/** Content from api/game_data/adventure.json, served with the player's adventure state. */
+export interface AdventureChapter {
+  id: string;
+  label: string;
+  title: string;
+  intro: string;
+  complete_title: string;
+  complete_text: string;
+}
+
+export interface AdventureQuest {
+  id: string;
+  title: string;
+  place: string;
+  detail: string;
+}
+
+export interface AdventureContent {
+  chapter: AdventureChapter;
+  quests: AdventureQuest[];
+}
+
 export interface AdventureState {
   stage: number;
   inventory: InventoryEntry[];
+  adventure: AdventureContent;
 }
 
 export interface TtsVoiceProfile {

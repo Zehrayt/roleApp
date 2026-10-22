@@ -5,13 +5,14 @@ import re
 from sqlalchemy.orm import Session
 
 from models.models import Dialogue, InventoryEvent, InventoryItem, User
-from services.adventure_quests import ITEM_CATALOG, completes_inventory_quest
+from services.adventure_quests import completes_inventory_quest, item_catalog
 from shared.schemas import InventoryTransfer
 
 
 def item_display_name(item_id: str) -> str:
     """Derive English UI text even for items saved before English-only labels."""
-    return ITEM_CATALOG.get(item_id, {}).get("name") or item_id.replace("_", " ").title()
+    known = item_catalog().get(item_id)
+    return known.name if known else item_id.replace("_", " ").title()
 
 
 def inventory_snapshot(db: Session, user_id: int) -> list[dict]:

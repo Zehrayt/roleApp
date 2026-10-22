@@ -9,6 +9,7 @@ from core.auth import authenticated_user
 from core.database import SessionLocal, get_db
 from models.models import Dialogue, GameSession, LearningTurnEvent, User
 from services.adventure_inventory import apply_inventory_transfers, inventory_snapshot
+from services.adventure_quests import completes_talk_quest, item_catalog
 from services.ai_client import decide_inventory_transfers, evaluate_and_respond, extract_utterance
 from services.dialogue_history import build_evaluator_history
 from services.extraction_eligibility import should_extract_after_turn
@@ -22,6 +23,7 @@ from shared.schemas import (
     ExtractionRequest,
     InventoryDecisionRequest,
     InventoryDecisionResponse,
+    KnownItem,
     RewardInfo,
 )
 
@@ -136,6 +138,10 @@ async def process_turn(
                     npc_reply=result.npc_response,
                     previous_dialogue=dialogue_history[-6:],
                     inventory=inventory_snapshot(db, session.user_id),
+                    known_items=[
+                        KnownItem(item_id=item.item_id, name=item.name, aliases=item.aliases)
+                        for item in item_catalog().values()
+                    ],
                 )
             )
         except Exception:
@@ -199,8 +205,8 @@ async def process_turn(
                 npc_role=session.npc_role,
             )
         if result.accepted and result.response_speaker == "npc":
-            if player.adventure_stage == 2 and session.location == "cafe":
-                player.adventure_stage = 3
+            if completes_talk_quest(player.adventure_stage, session.location, session.npc_role):
+                player.adventure_stage += 1
         result.adventure_stage = player.adventure_stage
 
 

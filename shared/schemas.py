@@ -182,6 +182,13 @@ class InventoryTransfer(BaseModel):
     category: Literal["food", "drink", "other"]
 
 
+class KnownItem(BaseModel):
+    """A familiar item from api/game_data/adventure.json; not an allowed-item list."""
+    item_id: str
+    name: str
+    aliases: list[str] = Field(default_factory=list)
+
+
 class InventoryDecisionRequest(BaseModel):
     location: str
     npc_role: str
@@ -189,6 +196,7 @@ class InventoryDecisionRequest(BaseModel):
     npc_reply: str
     previous_dialogue: list[DialogueTurn] = Field(default_factory=list)
     inventory: list[InventoryEntry] = Field(default_factory=list)
+    known_items: list[KnownItem] = Field(default_factory=list)
 
 
 class InventoryDecisionResponse(BaseModel):

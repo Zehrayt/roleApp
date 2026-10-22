@@ -3,14 +3,10 @@ import "./inventory.css";
 
 const DEFAULT_ICON = "/assets/inventory/item.svg";
 
-const ICONS: Record<string, string> = {
-  bread: "/assets/inventory/bread.svg",
-  pastry: "/assets/inventory/pastry.svg",
-  drink: "/assets/inventory/drink.svg",
-  sandwich: "/assets/inventory/sandwich.svg",
-  fruit: "/assets/inventory/fruit.svg",
-  boat_building_manual: "/assets/inventory/boat_building_manual.svg",
-};
+/** Icons follow the item id: drop public/assets/inventory/<item_id>.svg to give a new item its icon. */
+function iconFor(itemId: string): string {
+  return /^[a-z][a-z0-9_]*$/.test(itemId) ? `/assets/inventory/${itemId}.svg` : DEFAULT_ICON;
+}
 
 export class InventoryPanel {
   private readonly root: HTMLElement;
@@ -114,7 +110,7 @@ export class InventoryPanel {
     }
     if (item) {
       const img = document.createElement("img");
-      img.src = ICONS[item.item_id] ?? DEFAULT_ICON;
+      img.src = iconFor(item.item_id);
       img.alt = "";
       img.onerror = () => {
         img.onerror = null;

@@ -1,0 +1,47 @@
+{
+  "chapter": {
+    "id": "prologue",
+    "label": "CHAPTER 01 · PROLOGUE",
+    "title": "Before the Journey",
+    "intro": "You found a map leading to the misty pass. Gather supplies, knowledge, and a little courage in town before you leave.",
+    "complete_title": "PROLOGUE COMPLETE",
+    "complete_text": "You finished the prologue! Exploration and combat quests for the next chapter are in development."
+  },
+  "items": [
+    { "item_id": "bread", "name": "Bread", "description": "a loaf or piece of bread", "category": "food" },
+    { "item_id": "pastry", "name": "Pastry", "description": "a pastry, bun or cake", "category": "food" },
+    { "item_id": "drink", "name": "Drink", "description": "water, juice or another drink", "category": "drink" },
+    { "item_id": "sandwich", "name": "Sandwich", "description": "a sandwich", "category": "food" },
+    { "item_id": "fruit", "name": "Fruit", "description": "an apple, banana or other fruit", "category": "food" },
+    {
+      "item_id": "boat_building_manual",
+      "name": "Boat-Building Handbook",
+      "description": "a handbook on building a small boat",
+      "category": "other",
+      "aliases": ["boat-building handbook", "boat-building manual", "boat-building guide", "rowboat handbook", "small-boat handbook"]
+    }
+  ],
+  "quests": [
+    {
+      "id": "maya_provisions",
+      "title": "Supplies for the Road",
+      "place": "Bakery · Maya",
+      "detail": "Get food or a drink for your journey from Maya. This quest is complete when the item enters your inventory.",
+      "complete_when": { "type": "receive_item", "location": "bakery", "npc_role": "baker", "categories": ["food", "drink"] }
+    },
+    {
+      "id": "lina_boat_manual",
+      "title": "Boat-Building Handbook",
+      "place": "Library · Lina",
+      "detail": "Get a boat-building handbook from Lina. This quest is complete when the book enters your inventory.",
+      "complete_when": { "type": "receive_item", "location": "library", "npc_role": "librarian", "item_id": "boat_building_manual" }
+    },
+    {
+      "id": "leo_last_stop",
+      "title": "One Last Stop",
+      "place": "Café · Leo",
+      "detail": "Talk to Leo in English and take a break before your journey.",
+      "complete_when": { "type": "talk", "location": "cafe", "npc_role": "barista" }
+    }
+  ]
+}

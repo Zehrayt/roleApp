@@ -5,6 +5,7 @@ from core.auth import authenticated_user
 from core.database import get_db
 from models.models import User
 from services.adventure_inventory import inventory_snapshot
+from services.adventure_quests import adventure_content_for_client
 
 
 router = APIRouter()
@@ -18,4 +19,5 @@ def get_adventure_state(
     return {
         "stage": user.adventure_stage,
         "inventory": inventory_snapshot(db, user.id),
+        "adventure": adventure_content_for_client(),
     }

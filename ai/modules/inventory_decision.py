@@ -19,11 +19,12 @@ that was not explicitly made. If number is unstated, use 1. If the NPC confirms 
 item from the player, use a negative delta. Never infer an item that is not in the words
 or clearly implied by the latest exchange. For removals reuse an item_id from the current
 inventory; do not return removals of unowned items. For additions, reuse an existing
-item_id for the same item when possible. Bread, pastry, drink, sandwich and fruit are
-existing broad IDs; a specifically named distinct item may use its own ID. A
-boat-building handbook, manual, or guide (including a rowboat/small-boat handbook)
-always uses item_id "boat_building_manual". This is only an item identity rule,
-not an instruction to create or hand over the book. Output an
+item_id for the same item when possible. known_items lists the game's familiar items:
+when a transferred item matches a known item's name or one of its aliases, always use
+that item_id; broad known items (such as bread or drink) cover their kind, while a
+specifically named distinct item may use its own ID. known_items is only an item
+identity rule, not an allowed-item list and not an instruction to create or hand over
+any item. Output an
 empty array if no physical item changed hands. Combine repeated mentions of one item
 into one signed delta. Never output zero or a magnitude over 99."""
 

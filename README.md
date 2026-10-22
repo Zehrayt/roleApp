@@ -8,7 +8,7 @@ RoleApp is an English-practice game built around conversations and actions in a 
 | **Adventure** | Follow a three-step quest chain. Receive supplies from Maya, obtain a boat-building handbook from Lina, then talk to Leo. |
 | **Dub the Scene** | Pick a film scene and character, record the lines, review word-level feedback, and replay the scene with your voice. |
 
-Roleplay and Adventure use the same three.js town. Dubbing opens from the mode card or the town's Cassette & CD shop. The older Phaser pages remain in the repository for existing deep links; the town is the main game. Combat and later adventure chapters are not implemented yet.
+Roleplay and Adventure use the same three.js town. Dubbing opens from the mode card or the town's Dub Shop. The older Phaser pages remain in the repository for existing deep links; the town is the main game. Combat and later adventure chapters are not implemented yet.
 
 ## Run locally with Docker
 
@@ -74,7 +74,9 @@ The three current quests progress in order:
 
 The NPCs do not receive quest completion rules. After an accepted Adventure conversation, Groq examines the latest exchange, recent dialogue, and current inventory. It proposes the item identities and signed quantities that actually changed hands; offers, promises, and requests alone do not count. The API validates and saves the transfer, rejects removal of unowned items, and checks quest completion. Items are not restricted to a fixed catalog.
 
-Inventory has a nine-slot hotbar and at least 27 bag slots. Known items have pixel SVG icons; the boat-building handbook has its own icon. Unknown items use a generic item SVG. Hover over a slot to see the English item name and quantity. Icons are static assets; there is no automatic image-generation service. Inventory and quest progress persist in PostgreSQL for the guest account.
+Quests, the chapter text, and familiar items live in one content file, [`api/game_data/adventure.json`](api/game_data/adventure.json). The API validates it at startup, applies its completion rules, and sends the same content to the client with `GET /api/adventure/state`, so adding or editing a quest needs no code change. Each quest's `complete_when` is either `receive_item` (the player actually receives a given `item_id`, or any item in the given `categories`, from that NPC) or `talk` (an accepted conversation with that NPC). Quests unlock in file order; a player's progress is the index of their active quest, so insert new quests after the ones players may already have finished. Item `aliases` help the inventory judge reuse the right `item_id`; they are not an allowed-item list.
+
+Inventory has a nine-slot hotbar and at least 27 bag slots. An item's icon is `game/public/assets/inventory/<item_id>.svg`; items without one use the generic item SVG. Hover over a slot to see the English item name and quantity. Icons are static assets; there is no automatic image-generation service. Inventory and quest progress persist in PostgreSQL for the guest account.
 
 ### Dubbing
 
