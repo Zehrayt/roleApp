@@ -92,7 +92,6 @@ kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.75; margin-l
   background: var(--panel); color: var(--panel-fg); padding: 3px 8px; border-radius: 3px;
   border-bottom: 2px solid var(--accent);
 }
-.town-label small { color: var(--panel-muted); font-weight: 500; font-size: 12px; margin-left: 4px; }
 .town-bubble {
   max-width: 240px; background: var(--bubble); color: var(--bubble-ink);
   font-size: 14px; line-height: 1.35; padding: 8px 10px; border-radius: 6px;

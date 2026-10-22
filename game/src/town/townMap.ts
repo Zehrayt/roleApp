@@ -87,7 +87,6 @@ export interface Activity {
 export interface BuildingSpec {
   id: string;
   name: string;
-  nameEn: string;
   x0: number;
   z0: number;
   x1: number;
@@ -116,7 +115,6 @@ function blockRange(x0: number, y0: number, z0: number, x1: number, y1: number, 
 interface BuildingPlan {
   id: string;
   name: string;
-  nameEn: string;
   x0: number;
   z0: number;
   w: number;
@@ -160,7 +158,6 @@ function placeBuilding(world: VoxelWorld, plan: BuildingPlan): BuildingSpec {
   const spec: BuildingSpec = {
     id: plan.id,
     name: plan.name,
-    nameEn: plan.nameEn,
     x0,
     z0,
     x1,
@@ -223,7 +220,7 @@ export function buildTown(seed = 20261012): TownDefinition {
 
   // Bakery — Negotiation Table (backend scenario: bakery / baker)
   buildings.push(placeBuilding(world, {
-    id: "bakery", name: "Bakery", nameEn: "Bakery",
+    id: "bakery", name: "Bakery",
     x0: 4, z0: 4, w: 10, d: 8,
     wall: Block.PLASTER, roof: Block.ROOF, floor: Block.PLANKS,
     door: { x: 8, z: 11 },
@@ -238,7 +235,7 @@ export function buildTown(seed = 20261012): TownDefinition {
 
   // Library — Smart Reading Scrolls (library / librarian)
   buildings.push(placeBuilding(world, {
-    id: "library", name: "Library", nameEn: "Library",
+    id: "library", name: "Library",
     x0: 26, z0: 4, w: 10, d: 8,
     wall: Block.BRICK, roof: Block.DARK, floor: Block.PLANKS,
     door: { x: 30, z: 11 },
@@ -250,9 +247,9 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.fill(33, 2, 8, 33, 2, 9, Block.SHELF);
   world.fill(30, GROUND_Y, 12, 30, GROUND_Y, 18, Block.COBBLE);
 
-  // Listening Corner — Shadowing Studio (cafe / barista)
+  // Café — Shadowing Studio (cafe / barista)
   buildings.push(placeBuilding(world, {
-    id: "cafe", name: "Listening Corner", nameEn: "Café",
+    id: "cafe", name: "Café",
     x0: 4, z0: 26, w: 10, d: 8,
     wall: Block.PLANKS, roof: Block.ROOF, floor: Block.DARK,
     door: { x: 8, z: 26 },
@@ -265,11 +262,11 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.set(5, 2, 31, Block.PLANKS);
   world.fill(8, GROUND_Y, 21, 8, GROUND_Y, 25, Block.COBBLE);
 
-  // Cassette & CD shop — "Dub the Scene": pick a scene from the CD racks, then record.
+  // Dub Shop — "Dub the Scene": pick a scene from the CD racks, then record.
   // Racks on the west and north walls so their CD faces point at the default camera.
   const cdShelves = [...blockRange(28, 2, 28, 28, 3, 31), ...blockRange(31, 2, 27, 33, 3, 27)];
   buildings.push(placeBuilding(world, {
-    id: "studio", name: "Cassette & CD", nameEn: "Dub Shop",
+    id: "studio", name: "Dub Shop",
     x0: 27, z0: 26, w: 8, d: 7,
     wall: Block.BRICK, roof: Block.DARK, floor: Block.DARK,
     door: { x: 30, z: 26 },

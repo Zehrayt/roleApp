@@ -244,9 +244,7 @@ export class TownGame {
     el.className = "town-label";
     const name = document.createElement("span");
     name.textContent = b.name;
-    const en = document.createElement("small");
-    en.textContent = `· ${b.nameEn}`;
-    el.append(name, en);
+    el.append(name);
     this.host.appendChild(el);
     let dx = 0;
     let dz = 0;

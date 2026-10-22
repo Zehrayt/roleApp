@@ -17,7 +17,7 @@ const STATUS: Record<SpellBookStatus, { label: string; mark: string; hint: strin
 const PLACE: Record<string, string> = {
   bakery: "Bakery",
   library: "Library",
-  cafe: "Listening Corner",
+  cafe: "Café",
 };
 
 export interface SpellBookEvents {
