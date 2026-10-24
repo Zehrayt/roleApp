@@ -27,6 +27,10 @@ export const Tile = {
   cdShelf: 16,
   sand: 17,
   quilt: 18,
+  stone: 19,
+  crystal: 20,
+  rune: 21,
+  moss: 22,
 } as const;
 
 export const Block = {
@@ -48,6 +52,10 @@ export const Block = {
   CD_SHELF: 15,
   SAND: 16,
   BED: 17,
+  STONE: 18,
+  CRYSTAL: 19,
+  RUNE: 20,
+  MOSS: 21,
 } as const;
 
 export type BlockId = (typeof Block)[keyof typeof Block];
@@ -92,6 +100,11 @@ DEFS[Block.DARK] = def("dark planks", Tile.dark);
 DEFS[Block.CD_SHELF] = def("cd shelf", Tile.dark, Tile.cdShelf, Tile.dark);
 DEFS[Block.SAND] = def("sand", Tile.sand);
 DEFS[Block.BED] = def("bed", Tile.quilt, Tile.planks, Tile.planks);
+DEFS[Block.STONE] = def("stone", Tile.stone);
+// Glowing blue crystal: see-through so its neighbours keep their faces.
+DEFS[Block.CRYSTAL] = def("crystal", Tile.crystal, Tile.crystal, Tile.crystal, true, false);
+DEFS[Block.RUNE] = def("rune stone", Tile.stone, Tile.rune, Tile.stone, false, false);
+DEFS[Block.MOSS] = def("moss", Tile.moss, Tile.stone, Tile.stone);
 
 export function getBlockDef(id: number): BlockDef | undefined {
   return DEFS[id];

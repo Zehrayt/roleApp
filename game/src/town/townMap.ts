@@ -30,7 +30,7 @@ export interface CharacterLook {
 }
 
 /** Keys of ROLEPLAY_TTS_PROFILES in services/PraglishApiClient.ts. */
-export type NpcVoice = "cafeNpc" | "librarian" | "barista" | "friend";
+export type NpcVoice = "cafeNpc" | "librarian" | "barista" | "friend" | "keeper" | "merchant";
 
 export interface NpcSpec {
   id: string;
@@ -50,6 +50,8 @@ export interface NpcSpec {
   schedule?: ScheduleEntry[];
   /** Hidden until the quest that plays this cutscene is done (Sam appears in Kademe 2's first scene). */
   appearsAfterScene?: string;
+  /** A travelling companion who walks after the player (Sam on the Misty Isles). */
+  follows?: boolean;
 }
 
 /**
@@ -57,6 +59,8 @@ export interface NpcSpec {
  * Sam waits; the player counts as arrived inside `buildingId`, or within `radius` cells.
  */
 export interface MeetingPlace {
+  /** Which world the place is in (default: town). */
+  world?: WorldId;
   cell: Cell;
   buildingId?: string;
   radius?: number;
@@ -68,6 +72,8 @@ export const MEETING_PLACES: Record<string, MeetingPlace> = {
   library: { cell: { x: 31, z: 9 }, buildingId: "library" },
   plaza: { cell: { x: 24, z: 22 }, radius: 4 },
   pier: { cell: { x: 20, z: 50 }, radius: 4 },
+  market: { world: "isles", cell: { x: 26, z: 40 }, buildingId: "market" },
+  lighthouse: { world: "isles", cell: { x: 44, z: 17 }, buildingId: "lighthouse" },
 };
 
 export interface BlockPos {
@@ -121,21 +127,49 @@ export interface BuildingSpec {
   activity?: Activity;
 }
 
+export type WorldId = "town" | "isles";
+
+/** A boat the player can board to travel to another world. */
+export interface BoatSpec {
+  to: WorldId;
+  label: string;
+  /** Blocks the player must stand next to. */
+  anchors: BlockPos[];
+}
+
+/** A rune gate (Kademe 3) that a spell opens; its blocks are removed once the spell is cast. */
+export interface GateSpec {
+  id: string;
+  label: string;
+  blocks: BlockPos[];
+}
+
+export interface Atmosphere {
+  /** Fog colour and range (world units from the camera). */
+  fog: string;
+  fogNear: number;
+  fogFar: number;
+}
+
 export interface TownDefinition {
+  id: WorldId;
   world: VoxelWorld;
   buildings: BuildingSpec[];
   npcs: NpcSpec[];
   props: PropSpec[];
   spawn: Cell;
+  boats: BoatSpec[];
+  gates: GateSpec[];
+  atmosphere?: Atmosphere;
 }
 
-function blockRange(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): BlockPos[] {
+export function blockRange(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): BlockPos[] {
   const out: BlockPos[] = [];
   for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) out.push({ x, y, z });
   return out;
 }
 
-interface BuildingPlan {
+export interface BuildingPlan {
   id: string;
   name: string;
   x0: number;
@@ -151,7 +185,7 @@ interface BuildingPlan {
   activity?: Activity;
 }
 
-function placeBuilding(world: VoxelWorld, plan: BuildingPlan): BuildingSpec {
+export function placeBuilding(world: VoxelWorld, plan: BuildingPlan): BuildingSpec {
   const { x0, z0, w, d } = plan;
   const x1 = x0 + w - 1;
   const z1 = z0 + d - 1;
@@ -193,7 +227,7 @@ function placeBuilding(world: VoxelWorld, plan: BuildingPlan): BuildingSpec {
   return spec;
 }
 
-function placeTree(world: VoxelWorld, x: number, z: number, rng: () => number): void {
+export function placeTree(world: VoxelWorld, x: number, z: number, rng: () => number): void {
   world.fill(x, 2, z, x, 5, z, Block.LOG);
   for (let dy = 0; dy < 3; dy++) {
     const r = dy < 2 ? 2 : 1;
@@ -396,5 +430,8 @@ export function buildTown(seed = 20261012): TownDefinition {
     { id: "cafe-counter", buildingId: "cafe", location: "cafe", concept: "counter", blocks: blockRange(10, 2, 31, 12, 2, 31) },
   ];
 
-  return { world, buildings, npcs, props, spawn: { x: 43, z: 14 } };
+  // Sam's boat at the pier carries the player to the Misty Isles in Kademe 3.
+  const boats: BoatSpec[] = [{ to: "isles", label: "Sail to the Misty Isles", anchors: blockRange(22, 2, 51, 24, 2, 54).filter((b) => world.get(b.x, b.y, b.z) === Block.LOG) }];
+
+  return { id: "town", world, buildings, npcs, props, spawn: { x: 43, z: 14 }, boats, gates: [] };
 }

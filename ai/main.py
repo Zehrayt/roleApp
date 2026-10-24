@@ -55,6 +55,8 @@ from shared.schemas import (
     NPCTask,
     PlanDecisionRequest,
     PlanDecisionResponse,
+    SentenceCheckRequest,
+    SentenceCheckResponse,
     STTResponse,
     TTSRequest,
 )
@@ -63,6 +65,31 @@ load_dotenv()
 
 app = FastAPI(title="English World - AI Service")
 logger = logging.getLogger("uvicorn.error")
+
+
+@app.post("/sentence/check", response_model=SentenceCheckResponse)
+def sentence_check(payload: SentenceCheckRequest):
+    """Spell check for rune gates: the evaluator judges the sentence; rejected ones get a correction."""
+    evaluation = get_language_evaluator().evaluate(
+        LanguageEvaluationInput(
+            utterance=payload.utterance,
+            context=payload.context,
+            speaker="player",
+            listener="rune gate",
+            communicative_goals=[f"Use the word '{payload.target_word}' correctly and naturally in a full sentence"],
+        )
+    )
+    correction = None
+    if not evaluation.accepted:
+        correction = get_correction_module().correct(
+            CorrectionInput(utterance=payload.utterance, dialogue_history=[])
+        ).corrected_utterance
+    return SentenceCheckResponse(
+        accepted=evaluation.accepted,
+        probability_percent=evaluation.probability_percent,
+        reason=evaluation.brief_reason,
+        correction=correction,
+    )
 
 
 @app.post("/plan/decide", response_model=PlanDecisionResponse)
@@ -101,6 +128,28 @@ NPC_PROFILES = {
             "\"Wait, what do you mean?\". As kids he and the player built a raft at the pier that broke "
             "on the first wave. He keeps why he came back (he lost his job in the city) private unless "
             "he feels close to the player."
+        ),
+    },
+    ("lighthouse", "keeper"): {
+        "name": "Elowen",
+        "personality": (
+            "Elowen, the old keeper of the dark lighthouse on the Misty Isles. Calm, wise, a little "
+            "mysterious, kind to travellers. The lighthouse went dark years ago when its lamp crystal "
+            "broke, and the mist has never lifted since. To light it again you need a Mist Lantern; "
+            "Tobias at the Mist Market has the last one, and he never gives anything away for free. "
+            "She speaks in clear, simple sentences and enjoys gentle riddles."
+        ),
+    },
+    ("market", "merchant"): {
+        "name": "Tobias",
+        "personality": (
+            "Tobias, a sly but good-hearted merchant at the Mist Market. Dramatic, playful, loves to "
+            "bargain. He sells charms, maps and the last Mist Lantern. He knows the old keeper Elowen "
+            "lives in the lighthouse beyond the rune gate, and that the gate opens only to a spell "
+            "spoken in good English. IMPORTANT: he never hands over the Mist Lantern for nothing. He "
+            "gives it only after the player offers a fair trade (for example food, a drink, a book, "
+            "a photo or a favour) or bargains politely and convincingly; then he hands it over and "
+            "says so clearly. Until then he teases, haggles and asks what they can offer."
         ),
     },
 }

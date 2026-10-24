@@ -65,7 +65,7 @@ class Kademe2FlowTest(unittest.TestCase):
 
     def test_whole_tier(self):
         state = self.client.get("/api/adventure/state", auth=self.auth).json()
-        self.assertEqual([t["tier"] for t in state["adventure"]["tiers"]], [1, 2])
+        self.assertEqual([t["tier"] for t in state["adventure"]["tiers"]][:2], [1, 2])
         self.assertEqual(self.client.get("/api/adventure/cutscenes/meet_sam", auth=self.auth).json()["id"], "meet_sam")
         self.assertEqual(self.client.get("/api/adventure/cutscenes/..%2Fplans", auth=self.auth).status_code, 404)
 

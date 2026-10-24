@@ -69,7 +69,7 @@ describe("meeting places", () => {
       const ids = (JSON.parse(readFileSync(path, "utf-8")) as { places: { place_id: string }[] }).places.map((p) => p.place_id);
       expect(Object.keys(MEETING_PLACES).sort()).toEqual([...ids].sort());
     }
-    for (const [id, place] of Object.entries(MEETING_PLACES)) {
+    for (const [id, place] of Object.entries(MEETING_PLACES).filter(([, p]) => (p.world ?? "town") === "town")) {
       expect(grid.isWalkable(place.cell.x, place.cell.z), id).toBe(true);
       expect(findPath(grid, spawn, { x: place.cell.x, y: place.cell.z }), id).not.toBeNull();
       if (place.buildingId) {

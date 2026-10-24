@@ -6,6 +6,8 @@ import httpx
 from shared.schemas import (
     PlanDecisionRequest,
     PlanDecisionResponse,
+    SentenceCheckRequest,
+    SentenceCheckResponse,
     InventoryDecisionRequest,
     InventoryDecisionResponse,
     CorrectExtractionResult,
@@ -89,6 +91,15 @@ async def evaluate_and_respond(payload: EvaluateRequest) -> EvaluateResponse:
         )
         response.raise_for_status()
         return EvaluateResponse(**response.json())
+
+
+async def check_sentence(payload: SentenceCheckRequest) -> SentenceCheckResponse:
+    if USE_MOCK_AI:
+        return SentenceCheckResponse(accepted=True, reason="mock")
+    async with httpx.AsyncClient(timeout=AI_EVALUATION_TIMEOUT_SECONDS) as client:
+        response = await client.post(f"{AI_SERVICE_URL}/sentence/check", json=payload.model_dump())
+        response.raise_for_status()
+        return SentenceCheckResponse.model_validate(response.json())
 
 
 async def decide_plan(payload: PlanDecisionRequest) -> PlanDecisionResponse:

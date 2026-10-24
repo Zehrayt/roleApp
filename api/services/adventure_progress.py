@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from models.models import User
 from services import npc_memory, phone
-from services.adventure_quests import PlanRule, Quest, ReceiveItemRule, TalkRule, ReachRule, SceneRule, load_adventure
+from services.adventure_quests import PlanRule, Quest, ReceiveItemRule, TalkRule, load_adventure
 
 
 def quest_npc(quest: Quest) -> Optional[npc_memory.NpcDef]:
@@ -20,8 +20,6 @@ def quest_npc(quest: Quest) -> Optional[npc_memory.NpcDef]:
         return npc_memory.npc_for(rule.location, rule.npc_role)
     if isinstance(rule, PlanRule):
         return npc_memory.npc_by_id(rule.npc_id)
-    if isinstance(rule, (SceneRule, ReachRule)):
-        return None
     return None
 
 

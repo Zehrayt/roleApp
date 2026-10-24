@@ -20,6 +20,9 @@ class User(Base):
     clock_synced_at = Column(DateTime, nullable=True)
     # Phone (services/phone.py): the newest NPC message the player has seen.
     phone_seen_dialogue_id = Column(Integer, nullable=False, default=0)
+    # Which world the player is in ("town", "isles") and story facts such as opened rune gates.
+    world = Column(String, nullable=False, default="town")
+    story_flags = Column(JSON, nullable=False, default=dict)
 
     sessions = relationship("GameSession", back_populates="user")
 

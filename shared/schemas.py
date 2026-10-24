@@ -252,6 +252,20 @@ class PlanDecisionResponse(BaseModel):
     apologized: bool = False
 
 
+class SentenceCheckRequest(BaseModel):
+    """Is this a natural English sentence that uses the target word correctly? (Kademe 3 spells)"""
+    utterance: str
+    target_word: str
+    context: str = "casting a spell at a rune gate"
+
+
+class SentenceCheckResponse(BaseModel):
+    accepted: bool
+    probability_percent: Optional[float] = None
+    reason: Optional[str] = None
+    correction: Optional[str] = None
+
+
 class TTSRequest(BaseModel):
     text: str
     voice: str = "hannah"

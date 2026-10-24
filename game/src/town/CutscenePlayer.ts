@@ -17,6 +17,8 @@ export interface CutsceneStage {
   toast(text: string): void;
   /** Send the player's line to the NPC through the normal turn pipeline, with the scene moment as context. */
   converse(who: string, text: string, sceneNote: string): Promise<TurnResponse>;
+  /** A world effect named by the scene (e.g. "light_beacon"). */
+  trigger(name: string): void;
 }
 
 /** Wrong answers before the player may move on without a correct one. */
@@ -145,6 +147,7 @@ export class CutscenePlayer {
     if (step.camera) stage.focus(step.camera.focus, step.camera.zoom);
     if (step.place) stage.placeActor(step.place.who, step.place.cell);
     if (step.toast) stage.toast(step.toast);
+    if (step.call) stage.trigger(step.call);
     if (step.effect) await this.effect(step.effect);
     if (step.wait) await this.pause(step.wait * 1000);
     if (step.title) {

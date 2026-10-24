@@ -3,7 +3,9 @@
     { "id": "maya", "name": "Maya", "location": "bakery", "npc_role": "baker", "friends": ["lina", "leo", "sam"] },
     { "id": "lina", "name": "Lina", "location": "library", "npc_role": "librarian", "friends": ["maya"] },
     { "id": "leo", "name": "Leo", "location": "cafe", "npc_role": "barista", "friends": ["maya", "sam"] },
-    { "id": "sam", "name": "Sam", "location": "town", "npc_role": "friend", "friends": ["leo", "maya"], "meets": true }
+    { "id": "sam", "name": "Sam", "location": "town", "npc_role": "friend", "friends": ["leo", "maya"], "meets": true },
+    { "id": "elowen", "name": "Elowen", "location": "lighthouse", "npc_role": "keeper", "friends": ["tobias"] },
+    { "id": "tobias", "name": "Tobias", "location": "market", "npc_role": "merchant", "friends": ["elowen"] }
   ],
   "relationship": {
     "start": { "sympathy": 0, "trust": 40 },

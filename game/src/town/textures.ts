@@ -127,6 +127,21 @@ export function paintBlockAtlas(seed = 20261012): HTMLCanvasElement {
   paint(Tile.sand, () => pick(rng, ["#e8d39a", "#e2cb8d", "#eedcab", "#d9c083"]));
   // Patchwork quilt: red and cream squares with a white pillow band at the top.
   paint(Tile.quilt, (x, y) => (y < 4 ? "#f6f1e4" : ((x >> 2) + (y >> 2)) % 2 === 0 ? "#c4473a" : "#efe2c4"));
+  // Misty Isles (Kademe 3): weathered stone, glowing crystal, a carved rune and mossy rock.
+  paint(Tile.stone, () => pick(rng, ["#8a8f96", "#7d828a", "#969ba2", "#70757c"]));
+  paint(Tile.crystal, (x, y) => {
+    const facet = (x + y) % 6 === 0 || (x - y + 16) % 7 === 0;
+    return facet ? "#e8fbff" : pick(rng, ["#5fd4f0", "#4cc3e6", "#7fe0f5", "#3fb2db"]);
+  });
+  paint(Tile.rune, (x, y) => {
+    const glyph =
+      (x === 7 || x === 8) && y > 2 && y < 13 ||
+      (y === 4 || y === 5) && x > 3 && x < 12 ||
+      Math.abs(x - y) <= 0 && x > 4 && x < 11 ||
+      Math.abs(15 - x - y) <= 0 && x > 4 && x < 11;
+    return glyph ? "#8ff3ff" : pick(rng, ["#4f555e", "#585e67", "#4a4f57"]);
+  });
+  paint(Tile.moss, () => pick(rng, ["#5b7f3d", "#4f7136", "#668b45", "#6f7f5a"]));
 
   return canvas;
 }

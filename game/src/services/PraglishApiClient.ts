@@ -87,7 +87,7 @@ export interface QuestRule {
   scene_id?: string | null;
   place_id?: string;
   npc_id?: string;
-  trigger?: { near_building: string; from: string; to: string };
+  trigger?: { near_building?: string | null; world?: string; from: string; to: string };
 }
 
 export interface AdventureQuest {
@@ -121,6 +121,30 @@ export interface AdventureState {
   inventory: InventoryEntry[];
   adventure: AdventureContent;
   flags?: AdventureFlags;
+  /** Where the player is ("town" or "isles") and where they may sail. */
+  world?: string;
+  unlocked_worlds?: string[];
+  story_flags?: { opened_gates?: string[]; spells?: string[] };
+}
+
+/** Kademe 3 spells: an English word, used correctly in a sentence, opens a rune gate. */
+export interface SpellInfo {
+  gate_id: string;
+  gate_name: string;
+  word: string;
+  source: "spellbook" | "gate";
+  min_words: number;
+  opened: boolean;
+}
+
+export interface SpellCastResult {
+  success: boolean;
+  spell: SpellInfo;
+  hint?: string;
+  correction?: string | null;
+  already_open?: boolean;
+  quest_completed?: boolean;
+  stage?: number;
 }
 
 /** A cutscene played by the town engine (api/game_data/cutscenes/<id>.json). */
@@ -146,6 +170,8 @@ export interface CutsceneStep {
   effect?: "flash" | "fade_out" | "fade_in";
   wait?: number;
   toast?: string;
+  /** A world effect the town performs (e.g. "light_beacon"). */
+  call?: string;
   /** An interactive beat: the player answers in English before the scene goes on. */
   ask?: { who: string; goal: string; context: string; hint: string };
 }
@@ -190,6 +216,14 @@ export const ROLEPLAY_TTS_PROFILES = {
   player: {
     voice: "autumn",
     style: "Speak as a cheerful, warm young woman talking with old friends. Natural, friendly and relaxed pace.",
+  },
+  keeper: {
+    voice: "diana",
+    style: "Speak as a calm, wise old lighthouse keeper with a gentle, mysterious tone. Slow and clear.",
+  },
+  merchant: {
+    voice: "daniel",
+    style: "Speak as a sly, charming market trader who loves to bargain. Warm, playful and a little dramatic.",
   },
   friend: {
     voice: "troy",
@@ -367,6 +401,22 @@ export class PraglishApiClient {
   /** The player watched (or skipped) a scene; may finish a scene quest. */
   public async sceneSeen(sceneId: string): Promise<AdventureState & { completed: boolean }> {
     return this.request(`/api/adventure/scenes/${encodeURIComponent(sceneId)}/seen`, {});
+  }
+
+  /** The word a rune gate asks this player for (GET /api/spells/{gate}). */
+  public async getSpell(gateId: string): Promise<SpellInfo> {
+    await this.startSession();
+    return this.requestGet<SpellInfo>(`/api/spells/${encodeURIComponent(gateId)}`);
+  }
+
+  public async castSpell(gateId: string, text: string): Promise<SpellCastResult> {
+    return this.request<SpellCastResult>(`/api/spells/${encodeURIComponent(gateId)}/cast`, { text });
+  }
+
+  /** Sail to another world (POST /api/adventure/travel/{world}). */
+  public async travel(world: string): Promise<AdventureState> {
+    await this.startSession();
+    return this.request<AdventureState>(`/api/adventure/travel/${encodeURIComponent(world)}`, {});
   }
 
   /** The player reached a place; may finish a reach_place quest. */

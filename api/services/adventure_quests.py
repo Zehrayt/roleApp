@@ -72,7 +72,9 @@ class TalkRule(BaseModel):
 class SceneTrigger(BaseModel):
     """Where and when the client starts the scene (client-side check)."""
 
-    near_building: str
+    near_building: Optional[str] = None
+    # Only in this world ("town" by default); with no near_building it starts on arrival.
+    world: str = "town"
     from_: str = Field(alias="from")
     to: str
 
@@ -103,8 +105,15 @@ class ReachRule(BaseModel):
     items: list[str] = Field(default_factory=list)
 
 
+class SpellRule(BaseModel):
+    """Complete when the player opens this rune gate with a spell (game_data/spells.json)."""
+
+    type: Literal["spell_cast"]
+    gate_id: str
+
+
 CompletionRule = Annotated[
-    Union[ReceiveItemRule, TalkRule, SceneRule, PlanRule, ReachRule], Field(discriminator="type"),
+    Union[ReceiveItemRule, TalkRule, SceneRule, PlanRule, ReachRule, SpellRule], Field(discriminator="type"),
 ]
 
 
@@ -129,6 +138,8 @@ class Quest(BaseModel):
 class Tier(BaseModel):
     tier: int = Field(ge=1)
     cefr: str
+    # The world this tier takes place in; reaching the tier unlocks travel there.
+    world: str = "town"
     chapter: Chapter
     quests: list[Quest] = Field(min_length=1)
 
@@ -183,6 +194,17 @@ def current_quest(stage: int) -> Optional[Quest]:
     return quests[stage] if 0 <= stage < len(quests) else None
 
 
+def unlocked_worlds(stage: int) -> list[str]:
+    """Worlds the player may travel to: town, plus each later tier's world once that tier starts."""
+    worlds = ["town"]
+    start = 0
+    for tier in load_adventure().tiers:
+        if stage >= start and tier.world not in worlds:
+            worlds.append(tier.world)
+        start += len(tier.quests)
+    return worlds
+
+
 def tier_for_stage(stage: int) -> Tier:
     """The tier the player is in (the last one once everything is done)."""
     start = 0
@@ -224,6 +246,11 @@ def completes_scene_quest(stage: int, scene_id: str) -> bool:
 def completes_plan_quest(stage: int, npc_id: str) -> bool:
     quest = current_quest(stage)
     return quest is not None and isinstance(quest.complete_when, PlanRule) and quest.complete_when.npc_id == npc_id
+
+
+def completes_spell_quest(stage: int, gate_id: str) -> bool:
+    quest = current_quest(stage)
+    return quest is not None and isinstance(quest.complete_when, SpellRule) and quest.complete_when.gate_id == gate_id
 
 
 def reach_rule(stage: int, place_id: str) -> Optional[ReachRule]:

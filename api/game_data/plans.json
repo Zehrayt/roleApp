@@ -4,7 +4,9 @@
     { "place_id": "bakery", "name": "the bakery", "aliases": ["Maya's bakery", "bakery"] },
     { "place_id": "library", "name": "the library", "aliases": ["library", "Lina's library"] },
     { "place_id": "plaza", "name": "the fountain", "aliases": ["fountain", "square", "plaza", "town square"] },
-    { "place_id": "pier", "name": "the pier", "aliases": ["pier", "beach", "dock", "harbor"] }
+    { "place_id": "pier", "name": "the pier", "aliases": ["pier", "beach", "dock", "harbor"] },
+    { "place_id": "market", "name": "the Mist Market", "aliases": ["mist market", "market", "Tobias's shop"] },
+    { "place_id": "lighthouse", "name": "the lighthouse", "aliases": ["lighthouse", "Elowen's lighthouse", "tower"] }
   ],
   "rules": {
     "min_lead_minutes": 120,

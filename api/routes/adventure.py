@@ -8,6 +8,7 @@ from services.adventure_inventory import inventory_snapshot
 from services.adventure_progress import after_quests
 from services.adventure_quests import (
     adventure_content_for_client,
+    unlocked_worlds,
     completes_scene_quest,
     load_cutscene,
     reach_rule,
@@ -30,6 +31,9 @@ def _state(db: Session, user: User) -> dict:
         "inventory": inventory_snapshot(db, user.id),
         "adventure": adventure_content_for_client(),
         "flags": _flags(db, user),
+        "world": user.world or "town",
+        "unlocked_worlds": unlocked_worlds(user.adventure_stage),
+        "story_flags": user.story_flags or {},
     }
 
 
@@ -64,6 +68,18 @@ def scene_seen(scene_id: str, db: Session = Depends(get_db), user: User = Depend
         after_quests(db, player, before, player.adventure_stage)
     db.commit()
     return {"completed": completed, **_state(db, player)}
+
+
+@router.post("/travel/{world}")
+def travel(world: str, db: Session = Depends(get_db), user: User = Depends(authenticated_user)):
+    """Board a boat to another world; the server remembers where the player is."""
+    player = _locked(db, user)
+    if world not in unlocked_worlds(player.adventure_stage):
+        db.commit()
+        raise HTTPException(status_code=409, detail="That place is still hidden in the mist.")
+    player.world = world
+    db.commit()
+    return _state(db, player)
 
 
 @router.post("/reach/{place_id}")

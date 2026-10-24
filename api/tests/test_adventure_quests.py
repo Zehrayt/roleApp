@@ -51,7 +51,7 @@ class AdventureContentFileTest(unittest.TestCase):
                          ["maya_provisions", "lina_boat_manual", "leo_last_stop"])
         self.assertEqual(tier_for_stage(0).tier, 1)
         self.assertEqual(tier_for_stage(3).tier, 2)
-        self.assertEqual(tier_for_stage(99).tier, 2)
+        self.assertEqual(tier_for_stage(99).tier, len(load_adventure().tiers))
 
     def test_invalid_content_is_rejected(self):
         broken = {

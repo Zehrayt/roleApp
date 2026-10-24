@@ -9,7 +9,8 @@ from core.migrate import upgrade_database
 from services.adventure_quests import load_adventure
 from services.npc_memory import load_npcs
 from services.plans import load_plans
-from routes import adventure, analytics, dub, leaderboard, session, phone, plans, speech, spellbook, turn, user, vocabulary, world
+from services.spells import load_spells
+from routes import adventure, analytics, dub, leaderboard, session, phone, plans, speech, spellbook, spells, turn, user, vocabulary, world
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -63,6 +64,7 @@ app.include_router(adventure.router, prefix="/api/adventure", tags=["adventure"]
 app.include_router(world.router, prefix="/api/world", tags=["world"])
 app.include_router(phone.router, prefix="/api/phone", tags=["phone"])
 app.include_router(plans.router, prefix="/api/plans", tags=["plans"])
+app.include_router(spells.router, prefix="/api/spells", tags=["spells"])
 
 
 @app.on_event("startup")
@@ -71,6 +73,7 @@ def on_startup():
     load_adventure()
     load_npcs()
     load_plans()
+    load_spells()
     upgrade_database()
 
 

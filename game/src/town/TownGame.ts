@@ -11,7 +11,7 @@ import {
 } from "../services/PraglishApiClient";
 import { CutscenePlayer, type CutsceneStage } from "./CutscenePlayer";
 import { rememberDialogueMessage } from "../services/RoleplayMemory";
-import { currentQuest, stageAfterScene } from "./adventureProgress";
+import { allQuests, currentQuest, stageAfterScene } from "./adventureProgress";
 import { parseClock } from "./npcSchedule";
 import { daylightAt, formatClock, GameClock, minuteOfDay } from "./gameClock";
 import { scheduledCell } from "./npcSchedule";
@@ -26,14 +26,20 @@ import { ProgressPanel } from "./ProgressPanel";
 import { AdventureJournal } from "./AdventureJournal";
 import { InventoryPanel } from "./InventoryPanel";
 import { PhonePanel } from "./PhonePanel";
+import { SpellPanel } from "./SpellPanel";
+import { MagicBurst } from "./magic";
 import { VocabPanel } from "./VocabPanel";
+import { buildWorld, worldFromUrl, worldUrl } from "./worlds";
+import { Block } from "./blocks";
 import {
-  buildTown,
   GROUND_Y,
   isInsideBuilding,
   isUpperBlock,
   propAt,
   type Activity,
+  type BoatSpec,
+  type GateSpec,
+  type WorldId,
   type BuildingSpec,
   type Cell,
   type NpcSpec,
@@ -87,7 +93,9 @@ interface LabelRuntime {
 type Interaction =
   | { kind: "npc"; npc: NpcRuntime }
   | { kind: "activity"; building: BuildingSpec }
-  | { kind: "portal"; building: BuildingSpec };
+  | { kind: "portal"; building: BuildingSpec }
+  | { kind: "boat"; boat: BoatSpec }
+  | { kind: "gate"; gate: GateSpec };
 
 /**
  * The hub world: renders the block town with three.js, moves the player,
@@ -100,7 +108,13 @@ export class TownGame {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly rig: CameraRig;
-  private readonly baseMesh: THREE.Mesh;
+  private baseMesh: THREE.Mesh;
+  private readonly blockMaterial: THREE.MeshBasicMaterial;
+  /** API client for account-wide calls (clock, story, phone, plans), independent of any NPC's location. */
+  private readonly coreApi: PraglishApiClient;
+  private readonly openedGates = new Set<string>();
+  private followCheckAt = 0;
+  private beaconLit = false;
   private readonly upperMeshes = new Map<string, THREE.Mesh>();
   private readonly player: BlockCharacter;
   private readonly npcs: NpcRuntime[] = [];
@@ -119,6 +133,8 @@ export class TownGame {
   private readonly adventureJournal: AdventureJournal | null;
   private readonly inventoryPanel: InventoryPanel;
   private readonly phone: PhonePanel;
+  private readonly spellPanel: SpellPanel;
+  private readonly bursts: MagicBurst[] = [];
   private readonly adventureMode = new URLSearchParams(window.location.search).get("mode") === "adventure";
   private readonly dubStudio: DubStudio;
   private readonly apis = new Map<string, PraglishApiClient>();
@@ -157,7 +173,7 @@ export class TownGame {
   private segmentT = 0;
   private pendingTalk: NpcRuntime | null = null;
   private interaction: Interaction | null = null;
-  private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | InventoryPanel | PhonePanel | null = null;
+  private activePanel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | InventoryPanel | PhonePanel | SpellPanel | null = null;
   private nearestProp: PropSpec | null = null;
   private pendingProp: PropSpec | null = null;
   private pendingActivity: BuildingSpec | null = null;
@@ -169,7 +185,10 @@ export class TownGame {
 
   constructor(host: HTMLElement) {
     this.host = host;
-    this.town = buildTown();
+    this.town = buildWorld(worldFromUrl(window.location.search, this.adventureMode));
+    this.coreApi = new PraglishApiClient({
+      location: "town", npcRole: "friend", npcName: "Sam", mode: this.adventureMode ? "adventure" : "roleplay",
+    });
     this.cell = { ...this.town.spawn };
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -184,6 +203,9 @@ export class TownGame {
     atlas.generateMipmaps = false;
     atlas.colorSpace = THREE.SRGBColorSpace;
     const material = new THREE.MeshBasicMaterial({ map: atlas, vertexColors: true, alphaTest: 0.5 });
+    this.blockMaterial = material;
+    const atmosphere = this.town.atmosphere;
+    if (atmosphere) this.scene.fog = new THREE.Fog(atmosphere.fog, atmosphere.fogNear, atmosphere.fogFar);
 
     const { world, buildings } = this.town;
     this.blockCount = world.countBlocks();
@@ -241,7 +263,7 @@ export class TownGame {
     this.progressPanel = new ProgressPanel(host, () => this.panelClosed(this.progressPanel));
     this.adventureJournal = this.adventureMode ? new AdventureJournal(host, () => this.openAdventure(), () => this.panelClosed(this.adventureJournal), () => this.openInventory()) : null;
     this.inventoryPanel = new InventoryPanel(host, () => this.panelClosed(this.inventoryPanel));
-    const phoneApi = this.apiFor("town");
+    const phoneApi = this.coreApi;
     if (!phoneApi) throw new Error("Sam (location town) is missing from the town map");
     this.phone = new PhonePanel(host, phoneApi, "sam", {
       onClose: () => this.panelClosed(this.phone),
@@ -250,6 +272,13 @@ export class TownGame {
     this.phone.requestOpen = () => this.openPhone();
     this.phone.startPolling();
     this.cutscene = new CutscenePlayer(host);
+    this.spellPanel = new SpellPanel(host, this.coreApi, {
+      onClose: () => this.panelClosed(this.spellPanel),
+      onOpened: (result) => {
+        this.openGate(result.spell.gate_id, true);
+        if (result.quest_completed) void this.refreshPlayerState();
+      },
+    });
     this.updateNpcVisibility();
     void this.refreshPlans();
     window.setInterval(() => {
@@ -266,7 +295,7 @@ export class TownGame {
     this.stats = this.mustQuery<HTMLElement>("[data-town-stats]");
     this.clockEl = this.mustQuery<HTMLElement>("[data-town-clock]");
     this.toastEl = this.mustQuery<HTMLElement>("[data-town-toast]");
-    const clockApi = this.apiFor("bakery");
+    const clockApi = this.coreApi;
     if (!clockApi) throw new Error("The town needs at least one NPC location for API access");
     this.clock = new GameClock(clockApi);
     this.clock.start();
@@ -677,7 +706,7 @@ export class TownGame {
   }
 
   private async sleepUntilMorning(): Promise<void> {
-    const api = this.apiFor("bakery");
+    const api = this.coreApi;
     if (!api) return;
     try {
       const state = await api.sleep();
@@ -739,7 +768,7 @@ export class TownGame {
   }
 
   private async refreshPlans(): Promise<void> {
-    const api = this.apiFor("town");
+    const api = this.coreApi;
     if (!api) return;
     try {
       this.plans = await api.getPlans();
@@ -777,7 +806,7 @@ export class TownGame {
 
   private playerAt(placeId: string): boolean {
     const place = MEETING_PLACES[placeId];
-    if (!place) return false;
+    if (!place || (place.world ?? "town") !== this.town.id) return false;
     if (place.buildingId) return this.currentBuilding()?.id === place.buildingId;
     const p = this.player.root.position;
     return Math.hypot(p.x - (place.cell.x + 0.5), p.z - (place.cell.z + 0.5)) <= (place.radius ?? 3);
@@ -797,7 +826,7 @@ export class TownGame {
   }
 
   private async reportArrival(plan: Appointment): Promise<void> {
-    const api = this.apiFor("town");
+    const api = this.coreApi;
     if (!api) return;
     try {
       const { appointment, memory } = await api.arriveForPlan(plan.id);
@@ -854,7 +883,7 @@ export class TownGame {
   }
 
   private async refreshPlayerState(): Promise<void> {
-    const api = this.apiFor("bakery");
+    const api = this.coreApi;
     if (!api) return;
     try {
       this.applyAdventureState(await api.getAdventureState());
@@ -864,7 +893,7 @@ export class TownGame {
     }
   }
 
-  private panelClosed(panel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | InventoryPanel | PhonePanel | null): void {
+  private panelClosed(panel: DialoguePanel | VocabPanel | SpellBookPanel | ProgressPanel | AdventureJournal | InventoryPanel | PhonePanel | SpellPanel | null): void {
     if (panel && this.activePanel === panel) {
       this.activePanel = null;
       this.host.classList.remove("is-talking");
@@ -901,6 +930,8 @@ export class TownGame {
     if (!it) return;
     if (it.kind === "npc") this.openDialogue(it.npc);
     else if (it.kind === "activity" && it.building.activity) this.openActivity(it.building.activity.id);
+    else if (it.kind === "boat") void this.travel(it.boat.to);
+    else if (it.kind === "gate") this.onGate(it.gate);
     else if (it.building.portal) window.location.href = it.building.portal.href;
   }
 
@@ -945,7 +976,7 @@ export class TownGame {
     const gameSeconds = this.clock.now(now);
     this.updateClock(gameSeconds);
     if (!this.cutscene.isPlaying) {
-      this.checkArrivals(gameSeconds, now);
+      if (this.town.id === "town") this.checkArrivals(gameSeconds, now);
       this.checkStoryTriggers(gameSeconds, now);
     }
     this.updatePlayer(dt, now);
@@ -974,6 +1005,14 @@ export class TownGame {
     }
 
     this.resolveWaiters(now);
+    for (let i = this.bursts.length - 1; i >= 0; i--) {
+      const burst = this.bursts[i];
+      if (burst && !burst.update(dt)) {
+        this.scene.remove(burst.points);
+        burst.dispose();
+        this.bursts.splice(i, 1);
+      }
+    }
     const sceneFocus = this.sceneFocus ? this.targetPosition(this.sceneFocus) : null;
     if (sceneFocus) this.focus.set(sceneFocus.x, STAND_Y + 0.6, sceneFocus.z);
     else this.focus.set(this.player.root.position.x, STAND_Y + 0.6, this.player.root.position.z);
@@ -1031,11 +1070,20 @@ export class TownGame {
     root.setProperty("--sky-low", light.skyLow);
     this.hemiLight.intensity = 0.7 + 1.7 * light.level;
     this.sunLight.intensity = 0.15 + 1.45 * light.level;
+    // Blocks use an unlit material, so night is a tint on it (and on the fog).
+    this.blockMaterial.color.setScalar(0.38 + 0.62 * light.level);
+    const fog = this.scene.fog;
+    if (fog instanceof THREE.Fog && this.town.atmosphere) {
+      fog.color.set(this.town.atmosphere.fog).multiplyScalar(0.3 + 0.7 * light.level);
+      root.setProperty("--sky-top", `#${fog.color.getHexString()}`);
+      root.setProperty("--sky-low", `#${fog.color.getHexString()}`);
+    }
   }
 
   /** Walk scheduled NPCs toward their spot for the current time; returns whether the NPC moved. */
   private updateNpcMovement(npc: NpcRuntime, dt: number, gameSeconds: number): boolean {
     if (this.scripted.has(npc)) return this.stepAlongPath(npc, dt);
+    if (npc.spec.follows) return this.followPlayer(npc, dt);
     const schedule = npc.spec.schedule;
     if (!schedule || !this.clock.ready) return false;
     const goal = this.holdGoal(npc, gameSeconds) ?? this.meetingGoal(npc, gameSeconds) ?? scheduledCell(schedule, minuteOfDay(gameSeconds));
@@ -1109,10 +1157,155 @@ export class TownGame {
     npc.character.root.position.set(cell.x + 0.5, STAND_Y, cell.z + 0.5);
   }
 
+  // ---------------------------------------------------------------- worlds (Kademe 3)
+
+  private nearbyBoat(): BoatSpec | null {
+    const p = this.player.root.position;
+    const unlocked = this.adventure?.unlocked_worlds ?? ["town"];
+    for (const boat of this.town.boats) {
+      if (!this.adventureMode || !unlocked.includes(boat.to)) continue;
+      if (boat.anchors.some((a) => Math.hypot(a.x + 0.5 - p.x, a.z + 0.5 - p.z) <= 2.2)) return boat;
+    }
+    return null;
+  }
+
+  private nearbyGate(): GateSpec | null {
+    const p = this.player.root.position;
+    for (const gate of this.town.gates) {
+      if (gate.blocks.some((b) => Math.hypot(b.x + 0.5 - p.x, b.z + 0.5 - p.z) <= 2.4)) return gate;
+    }
+    return null;
+  }
+
+  /** Sail to another world: the server records it, then the page reloads into that world. */
+  private async travel(to: WorldId): Promise<void> {
+    if (this.storyBusy) return;
+    this.storyBusy = true;
+    try {
+      await this.coreApi.travel(to);
+      this.host.classList.add("is-sleeping"); // fade to black
+      window.setTimeout(() => window.location.assign(worldUrl(to, window.location.search)), 700);
+    } catch (error: unknown) {
+      this.storyBusy = false;
+      this.toast(error instanceof Error ? error.message : "The boat can't leave right now.");
+    }
+  }
+
+  /** A rune gate: open the spell panel (Kademe 3). */
+  private onGate(gate: GateSpec): void {
+    if (this.openedGates.has(gate.id)) {
+      this.toast("The rune gate is already open.");
+      return;
+    }
+    if (this.activePanel && this.activePanel !== this.spellPanel) this.activePanel.close();
+    this.activePanel = this.spellPanel;
+    this.keys.clear();
+    this.path = [];
+    this.host.classList.add("is-talking");
+    void this.spellPanel.open(gate.id);
+  }
+
+  /** Remove a rune gate's blocks and rebuild the world mesh. */
+  private openGate(gateId: string, animate: boolean): void {
+    if (this.openedGates.has(gateId)) return;
+    const gate = this.town.gates.find((g) => g.id === gateId);
+    if (!gate) return;
+    this.openedGates.add(gateId);
+    for (const b of gate.blocks) this.town.world.set(b.x, b.y, b.z, Block.AIR);
+    this.rebuildBaseMesh();
+    if (animate) {
+      const burst = new MagicBurst(gate.blocks);
+      this.bursts.push(burst);
+      this.scene.add(burst.points);
+      this.toast("✨ The rune gate opens!");
+    }
+  }
+
+  /** The lighthouse lamp turns to crystal and the mist thins (Kademe 3 finale). */
+  private lightBeacon(animate: boolean): void {
+    if (this.town.id !== "isles" || this.beaconLit) return;
+    this.beaconLit = true;
+    const lamp = [{ x: 44, y: 14, z: 16 }, { x: 44, y: 15, z: 16 }];
+    for (const b of lamp) this.town.world.set(b.x, b.y, b.z, Block.CRYSTAL);
+    const lighthouse = this.town.buildings.find((b) => b.id === "lighthouse");
+    const upper = lighthouse ? this.upperMeshes.get(lighthouse.id) : undefined;
+    if (lighthouse && upper) {
+      this.scene.remove(upper);
+      upper.geometry.dispose();
+      this.upperMeshes.set(lighthouse.id, this.createMesh(
+        buildMeshData(this.town.world, (x, y, z) => isUpperBlock(lighthouse, x, y, z)), this.blockMaterial,
+      ));
+    }
+    if (this.scene.fog instanceof THREE.Fog) this.scene.fog.far *= 1.8;
+    if (animate) {
+      const burst = new MagicBurst(lamp, 0xfff3b0, 60);
+      this.bursts.push(burst);
+      this.scene.add(burst.points);
+    }
+  }
+
+  private rebuildBaseMesh(): void {
+    const { world, buildings } = this.town;
+    this.scene.remove(this.baseMesh);
+    this.baseMesh.geometry.dispose();
+    this.faceCount = 0;
+    this.baseMesh = this.createMesh(
+      buildMeshData(world, (x, y, z) => !buildings.some((b) => isUpperBlock(b, x, y, z))),
+      this.blockMaterial,
+    );
+    for (const mesh of this.upperMeshes.values()) this.faceCount += (mesh.geometry.index?.count ?? 0) / 6;
+  }
+
+  /** A companion keeps a couple of steps behind the player. */
+  private followPlayer(npc: NpcRuntime, dt: number): boolean {
+    if (!npc.placed) {
+      npc.placed = true;
+      const start = this.nearestStandable(this.cell.x + 1, this.cell.z);
+      if (start) this.moveNpcTo(npc, start, true);
+    }
+    const now = performance.now();
+    const dist = Math.hypot(npc.cell.x - this.cell.x, npc.cell.z - this.cell.z);
+    if (now >= this.followCheckAt && !npc.panel?.isOpen && !npc.stepFrom) {
+      this.followCheckAt = now + 400;
+      if (dist > 2.5) {
+        const near = this.cellBesidePlayer(npc);
+        npc.path = near ? this.npcRoute(npc, near) ?? [] : [];
+      } else {
+        npc.path = [];
+      }
+    }
+    npc.speed = dist > 6 ? 4.6 : 3.6;
+    return this.stepAlongPath(npc, dt);
+  }
+
+  private cellBesidePlayer(npc: NpcRuntime): Cell | null {
+    let best: Cell | null = null;
+    let bestDist = Infinity;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
+      const x = this.cell.x + dx;
+      const z = this.cell.z + dz;
+      if (!this.grid.isWalkable(x, z) && !(npc.cell.x === x && npc.cell.z === z)) continue;
+      const d = Math.hypot(x - npc.cell.x, z - npc.cell.z);
+      if (d < bestDist) {
+        bestDist = d;
+        best = { x, z };
+      }
+    }
+    return best;
+  }
+
   // ---------------------------------------------------------------- story (Kademe 2)
 
   private applyAdventureState(state: AdventureState): void {
+    // Adventure remembers which world the player is in; reload into it if this page shows another.
+    if (this.adventureMode && state.world && state.world !== this.town.id) {
+      window.location.replace(worldUrl(state.world as WorldId, window.location.search));
+      return;
+    }
     this.adventure = state;
+    for (const gateId of state.story_flags?.opened_gates ?? []) this.openGate(gateId, false);
+    const lit = allQuests(state.adventure).findIndex((q) => q.id === "light_lighthouse");
+    if (lit >= 0 && state.stage > lit) this.lightBeacon(false);
     this.adventureJournal?.setState(state);
     this.inventoryPanel.setItems(state.inventory);
     this.updateNpcVisibility();
@@ -1146,10 +1339,13 @@ export class TownGame {
     const rule = currentQuest(this.adventure.adventure, this.adventure.stage)?.complete_when;
     if (!rule) return;
     if (rule.type === "scene" && rule.scene_id && rule.trigger) {
-      const building = this.town.buildings.find((b) => b.id === rule.trigger?.near_building);
-      if (!building || this.currentBuilding()?.id === building.id) return;
-      const p = this.player.root.position;
-      if (Math.hypot(p.x - (building.door.x + 0.5), p.z - (building.door.z + 0.5)) > 5) return;
+      if ((rule.trigger.world ?? "town") !== this.town.id) return;
+      if (rule.trigger.near_building) {
+        const building = this.town.buildings.find((b) => b.id === rule.trigger?.near_building);
+        if (!building || this.currentBuilding()?.id === building.id) return;
+        const p = this.player.root.position;
+        if (Math.hypot(p.x - (building.door.x + 0.5), p.z - (building.door.z + 0.5)) > 5) return;
+      }
       const minute = minuteOfDay(gameSeconds);
       const from = parseClock(rule.trigger.from);
       const to = parseClock(rule.trigger.to);
@@ -1162,7 +1358,7 @@ export class TownGame {
   }
 
   private async runSceneQuest(sceneId: string): Promise<void> {
-    const api = this.apiFor("bakery");
+    const api = this.coreApi;
     if (!api) return;
     this.storyBusy = true;
     try {
@@ -1177,7 +1373,7 @@ export class TownGame {
   }
 
   private async tryReach(placeId: string): Promise<void> {
-    const api = this.apiFor("bakery");
+    const api = this.coreApi;
     if (!api) return;
     this.storyBusy = true;
     try {
@@ -1202,7 +1398,7 @@ export class TownGame {
   /** Load and play a cutscene; returns false if it could not be loaded. */
   private async playScene(sceneId: string): Promise<boolean> {
     if (this.cutscene.isPlaying) return false;
-    const api = this.apiFor("bakery");
+    const api = this.coreApi;
     if (!api) return false;
     let scene;
     try {
@@ -1296,6 +1492,9 @@ export class TownGame {
       },
       speak: (who, text) => this.speakLine(who, text),
       toast: (text) => this.toast(text),
+      trigger: (name) => {
+        if (name === "light_beacon") this.lightBeacon(true);
+      },
       converse: async (who, text, sceneNote) => {
         const npc = this.actor(who);
         const api = npc ? this.apiFor(npc.spec.location) : null;
@@ -1397,7 +1596,11 @@ export class TownGame {
     if (nearest) this.interaction = { kind: "npc", npc: nearest };
     else if (inside?.activity && this.nearActivity(inside)) this.interaction = { kind: "activity", building: inside };
     else if (inside?.portal) this.interaction = { kind: "portal", building: inside };
-    else this.interaction = null;
+    else {
+      const boat = !inside ? this.nearbyBoat() : null;
+      const gate = !inside && !boat ? this.nearbyGate() : null;
+      this.interaction = boat ? { kind: "boat", boat } : gate ? { kind: "gate", gate } : null;
+    }
 
     // Nearest vocabulary prop in the same building.
     this.nearestProp = null;
@@ -1435,6 +1638,10 @@ export class TownGame {
     if (it && showPrompt) {
       this.prompt.textContent = it.kind === "npc"
         ? `T · Talk to ${it.npc.spec.name}`
+        : it.kind === "boat"
+          ? `Enter · ${it.boat.label}`
+        : it.kind === "gate"
+          ? `Enter · ${this.openedGates.has(it.gate.id) ? "The gate is open" : "Cast a spell"}`
         : it.building.activity
           ? `${it.building.activity.key} · ${it.building.activity.label}`
           : `Enter · ${it.building.portal?.label ?? "Enter"}`;

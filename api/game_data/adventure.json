@@ -1,16 +1,59 @@
 {
   "items": [
-    { "item_id": "bread", "name": "Bread", "description": "a loaf or piece of bread", "category": "food" },
-    { "item_id": "pastry", "name": "Pastry", "description": "a pastry, bun or cake", "category": "food" },
-    { "item_id": "drink", "name": "Drink", "description": "water, juice or another drink", "category": "drink" },
-    { "item_id": "sandwich", "name": "Sandwich", "description": "a sandwich", "category": "food" },
-    { "item_id": "fruit", "name": "Fruit", "description": "an apple, banana or other fruit", "category": "food" },
+    {
+      "item_id": "bread",
+      "name": "Bread",
+      "description": "a loaf or piece of bread",
+      "category": "food"
+    },
+    {
+      "item_id": "pastry",
+      "name": "Pastry",
+      "description": "a pastry, bun or cake",
+      "category": "food"
+    },
+    {
+      "item_id": "drink",
+      "name": "Drink",
+      "description": "water, juice or another drink",
+      "category": "drink"
+    },
+    {
+      "item_id": "sandwich",
+      "name": "Sandwich",
+      "description": "a sandwich",
+      "category": "food"
+    },
+    {
+      "item_id": "fruit",
+      "name": "Fruit",
+      "description": "an apple, banana or other fruit",
+      "category": "food"
+    },
     {
       "item_id": "boat_building_manual",
       "name": "Boat-Building Handbook",
       "description": "a handbook on building a small boat",
       "category": "other",
-      "aliases": ["boat-building handbook", "boat-building manual", "boat-building guide", "rowboat handbook", "small-boat handbook"]
+      "aliases": [
+        "boat-building handbook",
+        "boat-building manual",
+        "boat-building guide",
+        "rowboat handbook",
+        "small-boat handbook"
+      ]
+    },
+    {
+      "item_id": "mist_lantern",
+      "name": "Mist Lantern",
+      "description": "a glass lantern with a glowing blue crystal inside, made to light the old lighthouse",
+      "category": "other",
+      "aliases": [
+        "mist lantern",
+        "lantern",
+        "crystal lantern",
+        "mist lamp"
+      ]
     }
   ],
   "tiers": [
@@ -31,21 +74,38 @@
           "title": "Supplies for the Road",
           "place": "Bakery · Maya",
           "detail": "Get food or a drink for your journey from Maya. This quest is complete when the item enters your inventory.",
-          "complete_when": { "type": "receive_item", "location": "bakery", "npc_role": "baker", "categories": ["food", "drink"] }
+          "complete_when": {
+            "type": "receive_item",
+            "location": "bakery",
+            "npc_role": "baker",
+            "categories": [
+              "food",
+              "drink"
+            ]
+          }
         },
         {
           "id": "lina_boat_manual",
           "title": "Boat-Building Handbook",
           "place": "Library · Lina",
           "detail": "Get a boat-building handbook from Lina. This quest is complete when the book enters your inventory.",
-          "complete_when": { "type": "receive_item", "location": "library", "npc_role": "librarian", "item_id": "boat_building_manual" }
+          "complete_when": {
+            "type": "receive_item",
+            "location": "library",
+            "npc_role": "librarian",
+            "item_id": "boat_building_manual"
+          }
         },
         {
           "id": "leo_last_stop",
           "title": "One Last Stop",
           "place": "Café · Leo",
           "detail": "Talk to Leo in English and take a break before your journey.",
-          "complete_when": { "type": "talk", "location": "cafe", "npc_role": "barista" }
+          "complete_when": {
+            "type": "talk",
+            "location": "cafe",
+            "npc_role": "barista"
+          }
         }
       ]
     },
@@ -69,24 +129,49 @@
           "complete_when": {
             "type": "scene",
             "scene_id": "meet_sam",
-            "trigger": { "near_building": "bakery", "from": "06:00", "to": "12:00" }
+            "trigger": {
+              "near_building": "bakery",
+              "from": "06:00",
+              "to": "12:00"
+            }
           },
-          "on_complete": { "phone": [{ "npc_id": "sam", "text": "Hey, it's Sam! This is my number. Text me back? 😄" }] }
+          "on_complete": {
+            "phone": [
+              {
+                "npc_id": "sam",
+                "text": "Hey, it's Sam! This is my number. Text me back? 😄"
+              }
+            ]
+          }
         },
         {
           "id": "text_sam_back",
           "title": "Text Sam Back",
           "place": "Phone · Sam",
           "detail": "Open your phone (M) and answer Sam's message in English.",
-          "complete_when": { "type": "talk", "location": "town", "npc_role": "friend" },
-          "on_complete": { "phone": [{ "npc_id": "sam", "text": "I got my camera bag! Do you want to meet today? Where and when?" }] }
+          "complete_when": {
+            "type": "talk",
+            "location": "town",
+            "npc_role": "friend"
+          },
+          "on_complete": {
+            "phone": [
+              {
+                "npc_id": "sam",
+                "text": "I got my camera bag! Do you want to meet today? Where and when?"
+              }
+            ]
+          }
         },
         {
           "id": "meet_sam",
           "title": "Meet Sam",
           "place": "Phone · Sam",
           "detail": "Agree on a place and a time with Sam, then be there. Sam waits for one game hour.",
-          "complete_when": { "type": "plan_resolved", "npc_id": "sam" }
+          "complete_when": {
+            "type": "plan_resolved",
+            "npc_id": "sam"
+          }
         },
         {
           "id": "ready_to_sail",
@@ -97,7 +182,97 @@
             "type": "reach_place",
             "place_id": "pier",
             "scene_id": "pier_departure",
-            "items": ["boat_building_manual"]
+            "items": [
+              "boat_building_manual"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "tier": 3,
+      "cefr": "B1",
+      "world": "isles",
+      "chapter": {
+        "id": "misty_isles",
+        "label": "CHAPTER 03 · THE MISTY ISLES",
+        "title": "The Misty Isles",
+        "intro": "Beyond the mist lie islands of crystal and stone. The old lighthouse has been dark for years. Find out why, and bring the light back.",
+        "complete_title": "CHAPTER 3 COMPLETE",
+        "complete_text": "The lighthouse shines again and the mist is lifting. More isles are waiting beyond it."
+      },
+      "quests": [
+        {
+          "id": "land_ho",
+          "title": "Land Ho!",
+          "place": "Isles · Dock",
+          "detail": "Sail to the Misty Isles from the pier in town, then look around with Sam.",
+          "complete_when": {
+            "type": "scene",
+            "scene_id": "arrive_isles",
+            "trigger": {
+              "world": "isles",
+              "from": "00:00",
+              "to": "23:59"
+            }
+          }
+        },
+        {
+          "id": "mist_market",
+          "title": "The Mist Market",
+          "place": "Market · Tobias",
+          "detail": "Visit the Mist Market and ask Tobias about the dark lighthouse.",
+          "complete_when": {
+            "type": "talk",
+            "location": "market",
+            "npc_role": "merchant"
+          }
+        },
+        {
+          "id": "rune_gate",
+          "title": "The Rune Gate",
+          "place": "Bridge · Rune gate",
+          "detail": "Walk to the rune gate on the bridge and cast a spell: say a full English sentence with the magic word.",
+          "complete_when": {
+            "type": "spell_cast",
+            "gate_id": "mist_gate"
+          }
+        },
+        {
+          "id": "keeper_of_light",
+          "title": "The Keeper of the Light",
+          "place": "Lighthouse · Elowen",
+          "detail": "Meet Elowen at the lighthouse and ask how to bring the light back.",
+          "complete_when": {
+            "type": "talk",
+            "location": "lighthouse",
+            "npc_role": "keeper"
+          }
+        },
+        {
+          "id": "fair_trade",
+          "title": "A Fair Trade",
+          "place": "Market · Tobias",
+          "detail": "Get the Mist Lantern from Tobias. He never gives anything away: offer a fair trade or convince him politely.",
+          "complete_when": {
+            "type": "receive_item",
+            "location": "market",
+            "npc_role": "merchant",
+            "item_id": "mist_lantern"
+          }
+        },
+        {
+          "id": "light_lighthouse",
+          "title": "Light the Lighthouse",
+          "place": "Lighthouse · Elowen",
+          "detail": "Bring the Mist Lantern to the lighthouse.",
+          "complete_when": {
+            "type": "reach_place",
+            "place_id": "lighthouse",
+            "scene_id": "light_lighthouse",
+            "items": [
+              "mist_lantern"
+            ]
           }
         }
       ]

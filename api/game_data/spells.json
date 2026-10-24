@@ -1,0 +1,10 @@
+{
+  "gates": [
+    {
+      "gate_id": "mist_gate",
+      "name": "The Mist Gate",
+      "min_words": 4,
+      "fallback_words": ["open", "light", "together", "brave", "remember", "promise"]
+    }
+  ]
+}
