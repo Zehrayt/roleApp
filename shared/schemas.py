@@ -36,6 +36,8 @@ class NPCIdentity(BaseModel):
     plan_notes: list[str] = Field(default_factory=list)
     # The player's adventure tier sets the NPC's language ceiling (Kademe: A1, A2, B1…).
     cefr_level: Optional[str] = None
+    # The story moment this turn happens in (an interactive cutscene step, or right after one).
+    scene_note: Optional[str] = None
 
 
 class LanguageEvaluationInput(BaseModel):
@@ -159,6 +161,7 @@ class EvaluateRequest(BaseModel):
     world_time: Optional[str] = None
     plan_notes: list[str] = Field(default_factory=list)
     cefr_level: Optional[str] = None
+    scene_note: Optional[str] = None
 
 
 class RewardInfo(BaseModel):

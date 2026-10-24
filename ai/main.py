@@ -387,6 +387,7 @@ def evaluate_and_respond(payload: EvaluateRequest):
         world_time=payload.world_time,
         plan_notes=payload.plan_notes[:6],
         cefr_level=payload.cefr_level,
+        scene_note=payload.scene_note,
     )
     npc = NpcModule(identity=identity, generator=get_npc_generator())
     npc.dialogue_history = history

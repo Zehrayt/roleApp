@@ -127,6 +127,10 @@ export interface AdventureState {
 export interface Cutscene {
   id: string;
   title: string;
+  /** What happened, for the NPCs' context afterwards. */
+  summary?: string;
+  /** After the scene: who stays where they are, and who to keep talking to. */
+  after?: { stay?: string[]; talk?: string };
   steps: CutsceneStep[];
 }
 
@@ -142,6 +146,8 @@ export interface CutsceneStep {
   effect?: "flash" | "fade_out" | "fade_in";
   wait?: number;
   toast?: string;
+  /** An interactive beat: the player answers in English before the scene goes on. */
+  ask?: { who: string; goal: string; context: string; hint: string };
 }
 
 export interface ReachResult extends AdventureState {
@@ -326,10 +332,12 @@ export class PraglishApiClient {
     this.sessionPromise = null;
   }
 
-  public async sendTurn(userText: string): Promise<TurnResponse> {
+  /** `sceneNote` tells the NPC which story moment this turn happens in (cutscene steps, right after a scene). */
+  public async sendTurn(userText: string, sceneNote?: string | null): Promise<TurnResponse> {
     const sessionId = await this.startSession();
     return this.request<TurnResponse>(`/api/session/${sessionId}/turn`, {
       user_text: userText,
+      ...(sceneNote ? { scene_note: sceneNote } : {}),
     });
   }
 

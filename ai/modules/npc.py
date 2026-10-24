@@ -74,6 +74,15 @@ def _level_instruction(identity: NPCIdentity) -> str:
     )
 
 
+def _scene_instruction(identity: NPCIdentity) -> str:
+    if not identity.scene_note:
+        return ""
+    return (
+        f"This moment in the story: {identity.scene_note} Stay in this moment: react to what the "
+        "player just said, in 1-2 short sentences, as part of the scene.\n\n"
+    )
+
+
 def _channel_instruction(identity: NPCIdentity) -> str:
     if identity.scenario_state.get("channel") != "phone":
         return ""
@@ -101,10 +110,11 @@ def _npc_system_instruction(identity: NPCIdentity) -> str:
         f"{_focus_words_instruction(identity)}"
         f"{_memory_instruction(identity)}"
         f"{_level_instruction(identity)}"
+        f"{_scene_instruction(identity)}"
         f"{_channel_instruction(identity)}"
         f"{_plan_instruction(identity)}"
         f"NPC identity and scenario data:\n"
-        f"{identity.model_dump_json(indent=2, exclude={'memories', 'relationship_tier', 'world_time', 'plan_notes', 'cefr_level'})}"
+        f"{identity.model_dump_json(indent=2, exclude={'memories', 'relationship_tier', 'world_time', 'plan_notes', 'cefr_level', 'scene_note'})}"
     )
 
 

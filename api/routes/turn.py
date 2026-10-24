@@ -4,7 +4,7 @@ from typing import Literal
 import httpx
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from core.auth import authenticated_user
@@ -72,6 +72,8 @@ async def _record_extraction_background(
 
 class TurnRequest(BaseModel):
     user_text: str
+    # Set by the client during an interactive cutscene step or right after a scene.
+    scene_note: str | None = Field(default=None, max_length=800)
 
 
 @router.post("/{session_id}/turn", response_model=EvaluateResponse)
@@ -135,6 +137,8 @@ async def process_turn(
         npc_memories=npc_memories,
         relationship_tier=relationship.tier if relationship else None,
     )
+    if request.scene_note:
+        payload.scene_note = request.scene_note.strip()
     if session.mode in ("adventure", "phone"):
         payload.cefr_level = tier_for_stage(db.get(User, session.user_id).adventure_stage).cefr
     if npc is not None and npc.meets:

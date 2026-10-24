@@ -83,6 +83,19 @@ class PhoneTest(unittest.TestCase):
         self.assertEqual(response.status_code, 503)
         self.assertIn("Sam couldn't answer right now", response.json()["detail"])
 
+    def test_a_cutscene_moment_reaches_the_npc(self):
+        thread = self.client.get("/api/phone/sam", auth=self.auth).json()
+        reply = EvaluateResponse(accepted=True, npc_response="Enjoy it!", response_speaker="npc", updated_scenario_state={})
+        with patch("routes.turn.evaluate_and_respond", new_callable=AsyncMock, return_value=reply) as npc, patch(
+            "routes.turn.extract_utterance", new_callable=AsyncMock, return_value=None
+        ):
+            self.client.post(f"/api/session/{thread['session_id']}/turn", auth=self.auth, json={
+                "user_text": "Thank you, Sam!",
+                "scene_note": "You just gave the player a hot chocolate. The player's task right now: Thank Sam.",
+            })
+        self.assertEqual(npc.call_args.args[0].scene_note,
+                         "You just gave the player a hot chocolate. The player's task right now: Thank Sam.")
+
     def test_shopkeepers_have_no_phone_thread(self):
         self.assertEqual(self.client.get("/api/phone/maya", auth=self.auth).status_code, 404)
 

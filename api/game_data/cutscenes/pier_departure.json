@@ -1,6 +1,13 @@
 {
   "id": "pier_departure",
   "title": "At the pier",
+  "summary": "You and the player fixed the little boat at the pier using the book, Maya brought rolls, Lina asked for her book back dry, and you took a photo of everyone. The boat floats and you are ready to sail to the misty pass together. Now you are standing on the pier next to the boat.",
+  "after": {
+    "stay": [
+      "sam"
+    ],
+    "talk": "sam"
+  },
   "steps": [
     {
       "camera": {
@@ -30,23 +37,25 @@
       }
     },
     {
-      "when": "kept_meeting",
       "say": {
         "who": "sam",
-        "text": "Right on time! Okay, page twelve says… the nails go here."
-      }
-    },
-    {
-      "when": "missed_meeting",
-      "say": {
-        "who": "sam",
-        "text": "You came. Good. Let's just… build this, okay?"
-      }
+        "text": "Right on time! The wood is here. Did you bring the book?"
+      },
+      "when": "kept_meeting"
     },
     {
       "say": {
-        "who": "player",
-        "text": "Good morning, Sam! I have the book."
+        "who": "sam",
+        "text": "You came. Good. Did you bring the book?"
+      },
+      "when": "missed_meeting"
+    },
+    {
+      "ask": {
+        "who": "sam",
+        "goal": "Tell Sam you have the book and ask how you can help.",
+        "context": "You are at the pier with the little boat and some wood. You need the boat-building book the player has.",
+        "hint": "Yes, I have it! How can I help?"
       }
     },
     {
@@ -62,9 +71,11 @@
       }
     },
     {
-      "say": {
-        "who": "player",
-        "text": "Don't worry. Let's fix it together."
+      "ask": {
+        "who": "sam",
+        "goal": "Help Sam with the hole in the boat.",
+        "context": "You just found a hole in the boat. You need to fix it before you can sail.",
+        "hint": "Don't worry! Let's fix it together. Give me the hammer."
       }
     },
     {
@@ -129,12 +140,6 @@
       }
     },
     {
-      "say": {
-        "who": "player",
-        "text": "I promise, Lina. Thank you both!"
-      }
-    },
-    {
       "camera": {
         "focus": "sam",
         "zoom": 9
@@ -150,24 +155,18 @@
       }
     },
     {
-      "when": "kept_meeting",
       "say": {
         "who": "sam",
         "text": "Ten years later, and this time it floats!"
-      }
+      },
+      "when": "kept_meeting"
     },
     {
-      "when": "missed_meeting",
       "say": {
         "who": "sam",
         "text": "Thanks for coming today. Really."
-      }
-    },
-    {
-      "say": {
-        "who": "player",
-        "text": "Let's go, Sam!"
-      }
+      },
+      "when": "missed_meeting"
     },
     {
       "effect": "fade_out"
@@ -181,6 +180,5 @@
     {
       "effect": "fade_in"
     }
-  ],
-  "summary": "You and the player fixed the little boat at the pier, Maya brought rolls, Lina asked for her book back dry, you took a photo of everyone, and you sailed toward the misty pass together."
+  ]
 }

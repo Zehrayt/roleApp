@@ -14,6 +14,8 @@ export interface DialoguePanelEvents {
   onReply(text: string, speaker: DialogueSpeaker, seconds: number): void;
   onClose(): void;
   onAcceptedTurn?(result: TurnResponse): void;
+  /** Story context for this turn (e.g. right after a cutscene), passed to the NPC. */
+  sceneNote?(): string | null;
 }
 
 type MessageKind = "user" | "npc" | "feedback" | "reward" | "memory" | "error";
@@ -147,7 +149,7 @@ export class DialoguePanel {
     this.setBusy(true);
     this.status.textContent = `${this.npc.name} is thinking…`;
     try {
-      const result = await this.api.sendTurn(text);
+      const result = await this.api.sendTurn(text, this.events.sceneNote?.() ?? null);
       this.renderResult(result);
       this.status.textContent = result.accepted ? "Accepted · Keep going" : "Try the suggested correction";
     } catch (error: unknown) {
@@ -187,6 +189,12 @@ export class DialoguePanel {
     const seconds = Math.min(12, 2.5 + result.npc_response.split(/\s+/).length * 0.35);
     this.events.onReply(result.npc_response, coach ? "coach" : "npc", seconds);
     void this.speak(result.npc_response, coach);
+  }
+
+  /** Show an exchange that happened elsewhere (an interactive cutscene step) in this conversation's log. */
+  recordExchange(userText: string, npcText: string): void {
+    this.append("YOU", userText, "user");
+    this.append(this.npc.name.toUpperCase(), npcText, "npc");
   }
 
   private showBond(relationship: NpcRelationship): void {

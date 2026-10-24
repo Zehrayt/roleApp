@@ -10,6 +10,7 @@ import {
   type TurnResponse,
 } from "../services/PraglishApiClient";
 import { CutscenePlayer, type CutsceneStage } from "./CutscenePlayer";
+import { rememberDialogueMessage } from "../services/RoleplayMemory";
 import { currentQuest, stageAfterScene } from "./adventureProgress";
 import { parseClock } from "./npcSchedule";
 import { daylightAt, formatClock, GameClock, minuteOfDay } from "./gameClock";
@@ -45,6 +46,9 @@ const PLAYER_SPEED = 4.2; // cells per second
 const NPC_SPEED = 2.6;
 /** Sam leaves for a meeting this many game minutes before it starts (he still arrives a little late). */
 const MEETING_DEPARTURE_MINUTES = 5;
+/** How long an NPC stays with the player after a scene (game seconds), unless the player walks away. */
+const HANGOUT_SECONDS = 2 * 3600;
+const HANGOUT_LEAVE_DISTANCE = 10;
 const TALK_RANGE = 2.6;
 const STAND_Y = GROUND_Y + 1;
 const PROP_RANGE = 1.7;
@@ -71,6 +75,8 @@ interface NpcRuntime {
   /** Not in the world yet (appearsAfterScene) — invisible, silent, not blocking. */
   hidden: boolean;
   speed: number;
+  /** After a scene: stay here (and remember the scene) until this game time or until the player leaves. */
+  hold: { cell: Cell; until: number; note: string | null } | null;
 }
 
 interface LabelRuntime {
@@ -308,7 +314,7 @@ export class TownGame {
     return {
       spec, character, bubble, bubbleText: text, panel: null, replyUntil: 0, near: false,
       cell: { ...spec.cell }, path: [], stepFrom: null, stepT: 0, goal: null, placed: !spec.schedule,
-      hidden: false, speed: NPC_SPEED,
+      hidden: false, speed: NPC_SPEED, hold: null,
     };
   }
 
@@ -756,6 +762,19 @@ export class TownGame {
     return null;
   }
 
+  /** Where an NPC stays after a scene; the hold ends with time or when the player walks away. */
+  private holdGoal(npc: NpcRuntime, gameSeconds: number): Cell | null {
+    const hold = npc.hold;
+    if (!hold) return null;
+    const p = this.player.root.position;
+    const away = Math.hypot(p.x - (hold.cell.x + 0.5), p.z - (hold.cell.z + 0.5)) > HANGOUT_LEAVE_DISTANCE;
+    if (gameSeconds > hold.until || (away && !npc.panel?.isOpen)) {
+      npc.hold = null;
+      return null;
+    }
+    return hold.cell;
+  }
+
   private playerAt(placeId: string): boolean {
     const place = MEETING_PLACES[placeId];
     if (!place) return false;
@@ -801,9 +820,6 @@ export class TownGame {
         if (!played) this.toast(`${appointment.npc_name}: "Hey, you made it!"`);
         if (memory) this.toast(memory);
         await this.refreshPlayerState();
-        // The scene ends at the table: keep hanging out with the friend in a real conversation.
-        const friend = this.actor(appointment.npc_id);
-        if (friend && !friend.hidden) this.openDialogue(friend);
       } finally {
         this.storyBusy = false;
       }
@@ -902,6 +918,7 @@ export class TownGame {
           if (speaker === "npc") npc.character.talk(seconds, performance.now());
         },
         onAcceptedTurn: (result) => this.applyTurnResult(result),
+        sceneNote: () => (npc.hold && this.clock.now() <= npc.hold.until ? npc.hold.note : null),
         onClose: () => this.panelClosed(npc.panel),
       });
     }
@@ -1021,7 +1038,7 @@ export class TownGame {
     if (this.scripted.has(npc)) return this.stepAlongPath(npc, dt);
     const schedule = npc.spec.schedule;
     if (!schedule || !this.clock.ready) return false;
-    const goal = this.meetingGoal(npc, gameSeconds) ?? scheduledCell(schedule, minuteOfDay(gameSeconds));
+    const goal = this.holdGoal(npc, gameSeconds) ?? this.meetingGoal(npc, gameSeconds) ?? scheduledCell(schedule, minuteOfDay(gameSeconds));
     if (!npc.placed) {
       npc.placed = true;
       if (goal) this.moveNpcTo(npc, goal, true);
@@ -1200,6 +1217,9 @@ export class TownGame {
     this.pendingProp = null;
     this.pendingActivity = null;
     this.host.classList.add("in-cutscene");
+    const after = scene.after;
+    const stays = new Set(after?.stay ?? []);
+    const note = scene.summary ? `${scene.summary} You are still together with the player right after this.` : null;
     try {
       await this.cutscene.play(scene, this.cutsceneStage());
     } finally {
@@ -1207,16 +1227,24 @@ export class TownGame {
       this.sceneFocus = null;
       if (this.savedZoom !== null) this.rig.zoom = this.savedZoom;
       this.savedZoom = null;
+      const now = this.clock.now();
       for (const npc of this.scripted) {
         npc.path = [];
         npc.speed = NPC_SPEED;
-        npc.goal = null; // scheduled NPCs pick their routine up again
-        if (!npc.spec.schedule) this.moveNpcTo(npc, npc.spec.cell, true);
+        npc.goal = null; // scheduled NPCs pick their routine up again…
+        if (stays.has(npc.spec.id)) {
+          // …unless the scene says they stay with the player for a while.
+          npc.hold = { cell: { ...npc.cell }, until: now + HANGOUT_SECONDS, note };
+        } else if (!npc.spec.schedule) {
+          this.moveNpcTo(npc, npc.spec.cell, true);
+        }
       }
       this.scripted.clear();
       for (const waiter of this.waiters.splice(0)) waiter.resolve();
       this.updateNpcVisibility();
     }
+    const talkTo = after?.talk ? this.actor(after.talk) : null;
+    if (talkTo && !talkTo.hidden) this.openDialogue(talkTo);
     return true;
   }
 
@@ -1268,6 +1296,21 @@ export class TownGame {
       },
       speak: (who, text) => this.speakLine(who, text),
       toast: (text) => this.toast(text),
+      converse: async (who, text, sceneNote) => {
+        const npc = this.actor(who);
+        const api = npc ? this.apiFor(npc.spec.location) : null;
+        if (!npc || !api) throw new Error(`${who} cannot talk right now.`);
+        const result = await api.sendTurn(text, sceneNote);
+        this.applyTurnResult(result);
+        if (result.accepted) {
+          if (npc.panel) npc.panel.recordExchange(text, result.npc_response);
+          else {
+            rememberDialogueMessage(npc.spec.location, { author: "YOU", text, kind: "user" });
+            rememberDialogueMessage(npc.spec.location, { author: npc.spec.name.toUpperCase(), text: result.npc_response, kind: "npc" });
+          }
+        }
+        return result;
+      },
     };
   }
 
