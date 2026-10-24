@@ -29,7 +29,7 @@ import { PhonePanel } from "./PhonePanel";
 import { SpellPanel } from "./SpellPanel";
 import { MagicBurst } from "./magic";
 import { VocabPanel } from "./VocabPanel";
-import { buildWorld, worldFromUrl, worldUrl } from "./worlds";
+import { WORLD_NAMES, buildWorld, worldFromUrl, worldUrl } from "./worlds";
 import { Block } from "./blocks";
 import {
   GROUND_Y,
@@ -130,7 +130,10 @@ export class TownGame {
   private readonly raycaster = new THREE.Raycaster();
   private readonly pointer = new THREE.Vector2();
   private readonly keys = new Set<string>();
-  private readonly prompt: HTMLButtonElement;
+  /** Row of tappable action chips (also shows the keyboard key on desktop). */
+  private readonly prompt: HTMLElement;
+  private promptActions: Array<() => void> = [];
+  private promptKey = "";
   private readonly vocabPrompt: HTMLButtonElement;
   private readonly vocabPanel: VocabPanel;
   private readonly spellBook: SpellBookPanel;
@@ -183,6 +186,9 @@ export class TownGame {
   private pendingProp: PropSpec | null = null;
   private pendingActivity: BuildingSpec | null = null;
   private pointerDown: { x: number; y: number } | null = null;
+  /** Active touches on the canvas, for pinch-zoom and two-finger rotate. */
+  private readonly touches = new Map<number, { x: number; y: number }>();
+  private pinch: { dist: number; zoom: number; angle: number } | null = null;
   private last = performance.now();
   private fpsTime = 0;
   private fpsFrames = 0;
@@ -385,16 +391,17 @@ export class TownGame {
     return helper;
   }
 
-  private createHud(): HTMLButtonElement {
+  private createHud(): HTMLElement {
     const hud = document.createElement("div");
     hud.className = "town-hud";
     hud.innerHTML = `
       <div class="town-brand">
         <p class="town-brand__eyebrow">roleApp</p>
-        <h1 class="town-brand__title">Town</h1>
+        <h1 class="town-brand__title">${WORLD_NAMES[worldFromUrl(window.location.search, this.adventureMode)]}</h1>
         <p class="town-brand__hint">Click the ground to walk · Approach a character and press <kbd>T</kbd></p>
       </div>
-      <nav class="town-links" aria-label="Game navigation">
+      <button class="town-menu-toggle" type="button" aria-expanded="false" aria-controls="town-links" aria-label="Menu">☰</button>
+      <nav class="town-links" id="town-links" aria-label="Game navigation">
         <button class="town-btn town-btn--book" type="button" data-act="book">Spell Book<kbd>B</kbd></button>
         <button class="town-btn" type="button" data-act="progress">Progress Journal</button>
         <button class="town-btn town-btn--inventory" type="button" data-act="inventory">Inventory<kbd>E</kbd></button>
@@ -414,7 +421,7 @@ export class TownGame {
           <button class="town-btn" data-act="mode-perspective" aria-pressed="false">Perspective</button>
         </div>
         <div class="town-prompts">
-          <button class="town-prompt" type="button" hidden></button>
+          <div class="town-prompt-group" hidden></div>
           <button class="town-prompt town-prompt--vocab" type="button" hidden></button>
         </div>
       </div>`;
@@ -435,11 +442,21 @@ export class TownGame {
         else if (act === "adventure") this.openAdventure();
       });
     });
-    const prompt = hud.querySelector<HTMLButtonElement>(".town-prompt");
+    // Phones: the navigation buttons fold into a ☰ menu.
+    const menu = hud.querySelector<HTMLButtonElement>(".town-menu-toggle");
+    const setMenu = (open: boolean) => {
+      this.host.classList.toggle("menu-open", open);
+      menu?.setAttribute("aria-expanded", String(open));
+    };
+    menu?.addEventListener("click", () => setMenu(!this.host.classList.contains("menu-open")));
+    hud.querySelector(".town-links")?.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).closest(".town-btn")) setMenu(false);
+    });
+    const prompt = hud.querySelector<HTMLElement>(".town-prompt-group");
     if (!prompt) throw new Error("HUD prompt missing");
-    prompt.addEventListener("click", () => {
-      if (this.interaction && this.interaction.kind !== "npc") this.interact();
-      else if (this.talkers[0]) this.openDialogue(this.talkers[0]);
+    prompt.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button[data-i]");
+      if (btn) this.promptActions[Number(btn.dataset["i"])]?.();
     });
     return prompt;
   }
@@ -462,9 +479,40 @@ export class TownGame {
   private bindInput(): void {
     const canvas = this.renderer.domElement;
     canvas.addEventListener("pointerdown", (e) => {
-      this.pointerDown = { x: e.clientX, y: e.clientY };
+      this.host.classList.remove("menu-open");
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this.touches.size === 2) {
+        // Second finger: start a pinch (zoom) / twist (rotate) and cancel the tap.
+        this.pointerDown = null;
+        const [a, b] = [...this.touches.values()] as [{ x: number; y: number }, { x: number; y: number }];
+        this.pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom: this.rig.zoom, angle: Math.atan2(b.y - a.y, b.x - a.x) };
+      } else if (this.touches.size === 1) {
+        this.pointerDown = { x: e.clientX, y: e.clientY };
+      }
     });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!this.touches.has(e.pointerId)) return;
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (!this.pinch || this.touches.size !== 2) return;
+      const [a, b] = [...this.touches.values()] as [{ x: number; y: number }, { x: number; y: number }];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (dist > 10) this.rig.setZoom(this.pinch.zoom * (this.pinch.dist / dist));
+      const angle = Math.atan2(b.y - a.y, b.x - a.x);
+      let turn = angle - this.pinch.angle;
+      if (turn > Math.PI) turn -= 2 * Math.PI;
+      if (turn < -Math.PI) turn += 2 * Math.PI;
+      if (Math.abs(turn) > 0.6) {
+        this.rig.rotate(turn > 0 ? 1 : -1);
+        this.pinch.angle = angle;
+      }
+    });
+    const release = (e: PointerEvent) => {
+      this.touches.delete(e.pointerId);
+      if (this.touches.size < 2) this.pinch = null;
+    };
+    canvas.addEventListener("pointercancel", release);
     canvas.addEventListener("pointerup", (e) => {
+      release(e);
       const down = this.pointerDown;
       this.pointerDown = null;
       if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 8) return;
@@ -1698,29 +1746,48 @@ export class TownGame {
     }
 
     const it = this.interaction;
-    const parts: string[] = [];
+    const actions: Array<{ key: string; label: string; run: () => void }> = [];
     if (it && it.kind !== "npc") {
-      parts.push(it.kind === "boat"
-        ? `Enter · ${it.boat.label}`
+      const label = it.kind === "boat"
+        ? it.boat.label
         : it.kind === "gate"
-          ? `Enter · ${this.openedGates.has(it.gate.id) ? "The gate is open" : "Cast a spell"}`
+          ? this.openedGates.has(it.gate.id) ? "The gate is open" : "Cast a spell"
         : it.building.activity
-          ? `${it.building.activity.key} · ${it.building.activity.label}`
-          : `Enter · ${it.building.portal?.label ?? "Enter"}`);
+          ? it.building.activity.label
+          : it.building.portal?.label ?? "Enter";
+      const key = it.kind === "activity" && it.building.activity ? it.building.activity.key : "Enter";
+      actions.push({ key, label, run: () => this.interact() });
     }
-    const only = this.talkers.length === 1 ? this.talkers[0] : undefined;
-    if (only) parts.push(`T · Talk to ${only.spec.name}`);
-    else if (this.talkers.length > 1) {
-      parts.push(`Talk: ${this.talkers.slice(0, 9).map((n, i) => `${i + 1} · ${n.spec.name}`).join("   ")}`);
-    }
+    const many = this.talkers.length > 1;
+    this.talkers.slice(0, 9).forEach((npc, i) => {
+      actions.push({ key: many ? String(i + 1) : "T", label: `Talk to ${npc.spec.name}`, run: () => this.openDialogue(npc) });
+    });
     const companion = this.companion();
     if (companion && (this.companionWaiting || this.nearCompanion)) {
-      parts.push(this.companionWaiting ? `H · Call ${companion.spec.name}` : "H · Wait here");
+      actions.push({
+        key: "H",
+        label: this.companionWaiting ? `Call ${companion.spec.name}` : `${companion.spec.name}, wait here`,
+        run: () => this.toggleCompanionWait(),
+      });
     }
     const talking = this.talkers.some((n) => n.panel?.isOpen);
-    const showPrompt = parts.length > 0 && !talking;
-    this.prompt.hidden = !showPrompt;
-    if (showPrompt) this.prompt.textContent = parts.join("   ·   ");
+    const show = actions.length > 0 && !talking;
+    this.prompt.hidden = !show;
+    const key = show ? actions.map((a) => `${a.key}|${a.label}`).join("/") : "";
+    if (key !== this.promptKey) {
+      this.promptKey = key;
+      this.promptActions = actions.map((a) => a.run);
+      this.prompt.replaceChildren(...actions.map((a, i) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = i === 0 ? "town-prompt" : "town-prompt town-prompt--more";
+        btn.dataset["i"] = String(i);
+        const kbd = document.createElement("kbd");
+        kbd.textContent = a.key;
+        btn.append(kbd, a.label);
+        return btn;
+      }));
+    }
   }
 
   private updateOverlays(now: number): void {
@@ -1728,7 +1795,7 @@ export class TownGame {
     for (const npc of this.npcs) {
       const hasReply = now < npc.replyUntil;
       const idleOk = !npc.spec.follows || this.interaction?.kind === "npc" && this.interaction.npc === npc;
-      const show = !npc.hidden && (hasReply || (npc.near && idleOk && !npc.panel?.isOpen));
+      const show = !npc.hidden && (hasReply || (npc.near && idleOk && !npc.panel?.isOpen && !this.cutscene.isPlaying));
       npc.bubble.hidden = !show;
       if (!show) continue;
       if (!hasReply) npc.bubbleText.textContent = npc.spec.greeting;
@@ -1746,7 +1813,10 @@ export class TownGame {
     el.style.visibility = "visible";
     const x = ((v.x + 1) / 2) * this.host.clientWidth;
     const y = ((1 - v.y) / 2) * this.host.clientHeight;
-    el.style.transform = `translate(${Math.round(x - el.offsetWidth / 2)}px, ${Math.round(y - el.offsetHeight - 8)}px)`;
+    // Keep bubbles and labels on screen (narrow phone screens).
+    const maxX = this.host.clientWidth - el.offsetWidth - 4;
+    const left = Math.min(Math.max(4, x - el.offsetWidth / 2), Math.max(4, maxX));
+    el.style.transform = `translate(${Math.round(left)}px, ${Math.round(y - el.offsetHeight - 8)}px)`;
   }
 
   private updateStats(dt: number): void {

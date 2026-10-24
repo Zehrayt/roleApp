@@ -93,6 +93,8 @@ export class CutscenePlayer {
     q<HTMLButtonElement>(".cutscene__skip").addEventListener("click", () => this.skip());
     this.root.addEventListener("click", (event) => {
       const target = event.target as HTMLElement;
+      // A question waits for an answer: tapping around it (e.g. to hide the phone keyboard) must not skip it.
+      if (!this.askForm.hidden) return;
       if (!target.closest(".cutscene__skip") && !target.closest(".cutscene__ask")) this.advance?.();
     });
     window.addEventListener("keydown", (event) => {
@@ -103,7 +105,7 @@ export class CutscenePlayer {
         return;
       }
       if (event.key === "Escape") this.skip();
-      else if (event.key === " " || event.key === "Enter") this.advance?.();
+      else if ((event.key === " " || event.key === "Enter") && this.askForm.hidden) this.advance?.();
       else return;
       event.preventDefault();
       event.stopImmediatePropagation();

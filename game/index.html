@@ -62,7 +62,12 @@
 
   <div id="town" hidden></div>
   <script>
-    if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+    // A phone on the same Wi-Fi opens the game at the computer's address (e.g. 192.168.1.20:5173):
+    // talk to the API on that same computer.
+    const lan = /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(location.hostname);
+    if (lan) {
+      window.PRAGLISH_API_BASE_URL = `http://${location.hostname}:8000`;
+    } else if (location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
       window.PRAGLISH_API_BASE_URL = "https://praglish-api.onrender.com";
     }
   </script>

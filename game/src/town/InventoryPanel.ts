@@ -35,7 +35,7 @@ export class InventoryPanel {
         <div class="inventory-grid" data-bag aria-label="Bag slots"></div>
         <div class="inventory-window__section"><span>HOTBAR</span><small>9 SLOTS</small></div>
         <div class="inventory-grid inventory-grid--hotbar" data-hotbar aria-label="Hotbar slots"></div>
-        <p class="inventory-window__hint">Items appear here when they are actually handed over in a conversation. Press <kbd>E</kbd> or <kbd>Esc</kbd> to close.</p>
+        <p class="inventory-window__hint">Items appear here when they are actually handed over in a conversation.<span class="kbd-only"> Press <kbd>E</kbd> or <kbd>Esc</kbd> to close.</span></p>
       </div>`;
     container.appendChild(this.root);
     const bag = this.root.querySelector<HTMLElement>("[data-bag]");

@@ -27,6 +27,8 @@ allowed_origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    # Phones on the same Wi-Fi open the dev game at the computer's local address.
+    allow_origin_regex=r"^http://(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+):5173$",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

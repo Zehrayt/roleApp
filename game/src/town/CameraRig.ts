@@ -45,7 +45,12 @@ export class CameraRig {
 
   zoomBy(direction: 1 | -1): void {
     const factor = direction > 0 ? 1.15 : 1 / 1.15;
-    this.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, this.zoom * factor));
+    this.setZoom(this.zoom * factor);
+  }
+
+  /** Set the zoom directly (pinch gestures), clamped to the usual range. */
+  setZoom(zoom: number): void {
+    this.zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom));
   }
 
   update(dt: number, focus: THREE.Vector3, width: number, height: number): void {
@@ -59,8 +64,10 @@ export class CameraRig {
       Math.cos(this.azimuth) * Math.cos(elevation),
     );
 
+    // On a tall phone screen keep enough of the world in view sideways.
+    const zoom = Math.max(this.zoom, (this.zoom * 0.85) / Math.max(aspect, 0.3));
     if (this.mode === "iso") {
-      const h = this.zoom;
+      const h = zoom;
       this.ortho.left = (-h * aspect) / 2;
       this.ortho.right = (h * aspect) / 2;
       this.ortho.top = h / 2;
@@ -70,7 +77,7 @@ export class CameraRig {
       this.ortho.updateProjectionMatrix();
     } else {
       this.perspective.aspect = aspect;
-      this.perspective.position.copy(this.target).addScaledVector(this.dir, this.zoom * 1.45);
+      this.perspective.position.copy(this.target).addScaledVector(this.dir, zoom * 1.45);
       this.perspective.lookAt(this.target);
       this.perspective.updateProjectionMatrix();
     }

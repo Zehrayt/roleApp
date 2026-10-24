@@ -375,7 +375,7 @@ export class DubStudio {
       <p class="dub-shop__hint">${
         this.pickingCharacter
           ? "Which character will you voice? Use ← → to choose, then press <kbd>Space</kbd> to enter the studio."
-          : `${script.lines.length} lines · ${script.characters.length} characters. Press <kbd>Space</kbd> to choose this scene.`
+          : `${script.lines.length} lines · ${script.characters.length} characters.<span class="kbd-only"> Press <kbd>Space</kbd> to choose this scene.</span>`
       }</p>
       <div class="dub-shop__cast">${pills}</div>`;
     info.querySelectorAll<HTMLButtonElement>("[data-character-index]").forEach((btn) => {

@@ -38,3 +38,11 @@
 .adventure-tracker strong { font-size: 17px; line-height: 1; }
 .adventure-tracker small { font-size: 11px; color: #b6cba2; }
 @media (max-width: 700px) { .adventure-journal { padding: 8px; } .adventure-board { max-height: calc(100svh - 16px); } .adventure-board__hero { height: 245px; } .adventure-board__hero::after { background: linear-gradient(90deg, rgba(9,16,13,.9), rgba(9,16,13,.35)); } .adventure-board__hero-copy { left: 17px; right: 48px; top: 38px; } .adventure-board__hero-copy p { font-size: 13px; } .adventure-board__content { padding: 15px; } .adventure-step { grid-template-columns: 32px 1fr; gap: 10px; padding: 9px; } .adventure-step__badge { width: 30px; height: 30px; } .adventure-step__state { grid-column: 2; } .adventure-step h3 { font-size: 18px; } .adventure-board__footer { padding: 11px 15px; flex-direction: column; align-items: stretch; } .adventure-board__footer > div { display: grid; } .adventure-board__footer button { text-align: center; } .adventure-tracker { left: auto; right: 12px; bottom: 66px; width: 185px; } }
+
+/* Phones: the quest card sits under the top bar instead of over the controls. */
+@media (max-width: 640px) {
+  .adventure-tracker { left: 8px; right: auto; top: 52px; bottom: auto; width: min(210px, calc(100% - 70px)); padding: 6px 10px; box-shadow: 3px 3px 0 rgba(7,12,8,.7); }
+  .adventure-tracker strong { font-size: 14px; }
+  #town.menu-open .adventure-tracker { visibility: hidden; }
+}
+#town.in-cutscene .adventure-tracker { display: none; }
