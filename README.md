@@ -59,6 +59,9 @@ The browser creates a guest account automatically. Progress is tied to that gues
 | `B` | Open Spell Book |
 | `P` | Open Progress Journal |
 | `K` near the CD shelves | Open Dub the Scene |
+| `M` or the phone button | Open the phone (texts with Sam) |
+| `Z` next to your bed at home | Sleep until 07:00 (after 20:00) |
+| `Space` / `Esc` in a cutscene | Next line / skip the scene |
 | `Enter` near an activity or portal | Interact |
 | `Esc` | Close the current panel |
 
@@ -77,6 +80,20 @@ The NPCs do not receive quest completion rules. After an accepted Adventure conv
 Quests, the chapter text, and familiar items live in one content file, [`api/game_data/adventure.json`](api/game_data/adventure.json). The API validates it at startup, applies its completion rules, and sends the same content to the client with `GET /api/adventure/state`, so adding or editing a quest needs no code change. Each quest's `complete_when` is either `receive_item` (the player actually receives a given `item_id`, or any item in the given `categories`, from that NPC) or `talk` (an accepted conversation with that NPC). Quests unlock in file order; a player's progress is the index of their active quest, so insert new quests after the ones players may already have finished. Item `aliases` help the inventory judge reuse the right `item_id`; they are not an allowed-item list.
 
 Inventory has a nine-slot hotbar and at least 27 bag slots. An item's icon is `game/public/assets/inventory/<item_id>.svg`; items without one use the generic item SVG. Hover over a slot to see the English item name and quantity. Icons are static assets; there is no automatic image-generation service. Inventory and quest progress persist in PostgreSQL for the guest account.
+
+### Tiers, time, Sam and cutscenes
+
+Adventure is split into tiers (kademe) in [`api/game_data/adventure.json`](api/game_data/adventure.json). Tier 1 is the prologue above at A1; tier 2, "An Old Friend", runs at A2 and introduces Sam. A player's progress is still one number: the index of the active quest across all tiers laid end to end, so existing progress keeps its meaning. Each tier's CEFR level is passed to the NPCs as their language ceiling. Besides `receive_item` and `talk`, quests can complete on a watched cutscene (`scene`), a meeting that ended kept or missed (`plan_resolved`), or reaching a place with the right items (`reach_place`); a quest's `on_complete` can send scripted phone texts.
+
+- **Clock:** 2 real minutes = 1 game hour. The API owns the clock and advances it on the client's ticks, capped per tick, so it pauses while the game is closed. The sky and light follow the time of day; sleeping in your bed at home (`Z`, after 20:00) jumps to 07:00.
+- **Sam:** the player's childhood friend (voice `troy`) appears in tier 2's first cutscene and walks a daily routine between his house, the fountain, the beach and Leo's café.
+- **Phone:** one persistent text thread with Sam. Texts go through the same turn pipeline as face-to-face talk (language check, memory, relationship). Unread messages show as a badge.
+- **Meetings:** after each accepted turn with Sam, a plan judge reads whether a place and time were agreed, cancelled, or apologised for; the API applies the rules in [`api/game_data/plans.json`](api/game_data/plans.json) (known places, at least two game hours' notice, 07:00–22:00). Sam texts a reminder an hour before, walks to the place and waits one game hour. If the player is there, the meeting is kept (sympathy +5, trust +12) and a cutscene plays; if not, Sam sends a hurt message, trust drops by 25 and his friends hear about it. An apology restores 10 trust.
+- **Cutscenes:** in-engine scenes in `api/game_data/cutscenes/` with letterbox bars, scripted camera, walking characters and voiced subtitles. Steps are `camera`, `title`, `place`, `walk`, `say`, `effect`, `wait` and `toast`; a step's `when` (`kept_meeting` / `missed_meeting`) branches on the story so far.
+
+### NPC memory and relationships
+
+Maya, Lina, and Leo remember what actually happened with the player and feel differently about them over time. Memories are never written by the language model: each one comes from a template and is tied to a real event, either a confirmed item handover or a completed quest. The NPC involved remembers it as something they saw, and their friends hear about it once as a rumor ("I heard..."). Each NPC's sympathy (−100…100) and trust (0…100) toward the player rise with accepted conversation turns (capped per conversation), gifts, received items, and quests, and a share of every change reaches the NPC's friends through gossip. The sympathy tier (hostile, cold, neutral, friendly, close) shapes the NPC's tone and appears in the conversation header. The NPC roster, who gossips to whom, and every relationship number live in [`api/game_data/npcs.json`](api/game_data/npcs.json).
 
 ### Dubbing
 

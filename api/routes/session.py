@@ -16,7 +16,7 @@ class SessionStartRequest(BaseModel):
     password: str
     location: str
     npc_role: str  # orn: "baker"
-    mode: Literal["roleplay", "adventure"] = "roleplay"
+    mode: Literal["roleplay", "adventure"] = "roleplay"  # "phone" threads are created by /api/phone
 
 
 @router.post("/start")

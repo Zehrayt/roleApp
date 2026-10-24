@@ -4,6 +4,8 @@ from typing import Literal
 import httpx
 
 from shared.schemas import (
+    PlanDecisionRequest,
+    PlanDecisionResponse,
     InventoryDecisionRequest,
     InventoryDecisionResponse,
     CorrectExtractionResult,
@@ -87,6 +89,15 @@ async def evaluate_and_respond(payload: EvaluateRequest) -> EvaluateResponse:
         )
         response.raise_for_status()
         return EvaluateResponse(**response.json())
+
+
+async def decide_plan(payload: PlanDecisionRequest) -> PlanDecisionResponse:
+    if USE_MOCK_AI:
+        return PlanDecisionResponse()
+    async with httpx.AsyncClient(timeout=AI_EVALUATION_TIMEOUT_SECONDS) as client:
+        response = await client.post(f"{AI_SERVICE_URL}/plan/decide", json=payload.model_dump())
+        response.raise_for_status()
+        return PlanDecisionResponse.model_validate(response.json())
 
 
 async def decide_inventory_transfers(payload: InventoryDecisionRequest) -> InventoryDecisionResponse:

@@ -53,6 +53,8 @@ from shared.schemas import (
     LanguageEvaluationInput,
     NPCIdentity,
     NPCTask,
+    PlanDecisionRequest,
+    PlanDecisionResponse,
     STTResponse,
     TTSRequest,
 )
@@ -61,6 +63,13 @@ load_dotenv()
 
 app = FastAPI(title="English World - AI Service")
 logger = logging.getLogger("uvicorn.error")
+
+
+@app.post("/plan/decide", response_model=PlanDecisionResponse)
+def plan_decide(payload: PlanDecisionRequest):
+    from modules.plan_decision import decide_plan
+
+    return decide_plan(payload)
 
 
 @app.post("/inventory/decide", response_model=InventoryDecisionResponse)
@@ -81,6 +90,18 @@ NPC_PROFILES = {
     ("cafe", "barista"): {
         "name": "Leo",
         "personality": "Friendly, laid-back, upbeat, and concise",
+    },
+    ("town", "friend"): {
+        "name": "Sam",
+        "personality": (
+            "Sam Rivera, the player's childhood friend, just moved back to town and wants to be a "
+            "photographer; his camera is always around his neck. Energetic and casual (\"No way!\", "
+            "\"That's wild.\", \"Deal!\"), a little messy, usually five minutes late but always keeps "
+            "his promises. He never corrects the player's English; if he does not understand he asks "
+            "\"Wait, what do you mean?\". As kids he and the player built a raft at the pier that broke "
+            "on the first wave. He keeps why he came back (he lost his job in the city) private unless "
+            "he feels close to the player."
+        ),
     },
 }
 
@@ -295,6 +316,11 @@ def evaluate_and_respond(payload: EvaluateRequest):
         ],
         scenario_state=payload.scenario_state,
         focus_words=payload.focus_words[:2],
+        memories=payload.npc_memories[:10],
+        relationship_tier=payload.relationship_tier,
+        world_time=payload.world_time,
+        plan_notes=payload.plan_notes[:6],
+        cefr_level=payload.cefr_level,
     )
     npc = NpcModule(identity=identity, generator=get_npc_generator())
     npc.dialogue_history = history

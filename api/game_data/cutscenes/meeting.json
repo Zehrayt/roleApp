@@ -1,0 +1,12 @@
+{
+  "id": "meeting",
+  "title": "You made it!",
+  "steps": [
+    { "camera": { "focus": "sam", "zoom": 9 } },
+    { "walk": { "who": "player", "near": "sam" } },
+    { "say": { "who": "sam", "text": "Hey, you made it! Right on time… well, almost." } },
+    { "title": { "text": "📷 An old photo: two kids and a broken raft", "seconds": 2.5 } },
+    { "say": { "who": "sam", "text": "Look. Our raft. Ten years ago. This time, we read the book first. Promise?" } },
+    { "say": { "who": "sam", "text": "Meet me at the pier tomorrow morning. I'll bring the wood!" } }
+  ]
+}

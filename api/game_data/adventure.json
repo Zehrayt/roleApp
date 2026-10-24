@@ -1,12 +1,4 @@
 {
-  "chapter": {
-    "id": "prologue",
-    "label": "CHAPTER 01 · PROLOGUE",
-    "title": "Before the Journey",
-    "intro": "You found a map leading to the misty pass. Gather supplies, knowledge, and a little courage in town before you leave.",
-    "complete_title": "PROLOGUE COMPLETE",
-    "complete_text": "You finished the prologue! Exploration and combat quests for the next chapter are in development."
-  },
   "items": [
     { "item_id": "bread", "name": "Bread", "description": "a loaf or piece of bread", "category": "food" },
     { "item_id": "pastry", "name": "Pastry", "description": "a pastry, bun or cake", "category": "food" },
@@ -21,27 +13,94 @@
       "aliases": ["boat-building handbook", "boat-building manual", "boat-building guide", "rowboat handbook", "small-boat handbook"]
     }
   ],
-  "quests": [
+  "tiers": [
     {
-      "id": "maya_provisions",
-      "title": "Supplies for the Road",
-      "place": "Bakery · Maya",
-      "detail": "Get food or a drink for your journey from Maya. This quest is complete when the item enters your inventory.",
-      "complete_when": { "type": "receive_item", "location": "bakery", "npc_role": "baker", "categories": ["food", "drink"] }
+      "tier": 1,
+      "cefr": "A1",
+      "chapter": {
+        "id": "prologue",
+        "label": "CHAPTER 01 · PROLOGUE",
+        "title": "Before the Journey",
+        "intro": "You found a map leading to the misty pass. Gather supplies, knowledge, and a little courage in town before you leave.",
+        "complete_title": "PROLOGUE COMPLETE",
+        "complete_text": "You finished the prologue! Exploration and combat quests for the next chapter are in development."
+      },
+      "quests": [
+        {
+          "id": "maya_provisions",
+          "title": "Supplies for the Road",
+          "place": "Bakery · Maya",
+          "detail": "Get food or a drink for your journey from Maya. This quest is complete when the item enters your inventory.",
+          "complete_when": { "type": "receive_item", "location": "bakery", "npc_role": "baker", "categories": ["food", "drink"] }
+        },
+        {
+          "id": "lina_boat_manual",
+          "title": "Boat-Building Handbook",
+          "place": "Library · Lina",
+          "detail": "Get a boat-building handbook from Lina. This quest is complete when the book enters your inventory.",
+          "complete_when": { "type": "receive_item", "location": "library", "npc_role": "librarian", "item_id": "boat_building_manual" }
+        },
+        {
+          "id": "leo_last_stop",
+          "title": "One Last Stop",
+          "place": "Café · Leo",
+          "detail": "Talk to Leo in English and take a break before your journey.",
+          "complete_when": { "type": "talk", "location": "cafe", "npc_role": "barista" }
+        }
+      ]
     },
     {
-      "id": "lina_boat_manual",
-      "title": "Boat-Building Handbook",
-      "place": "Library · Lina",
-      "detail": "Get a boat-building handbook from Lina. This quest is complete when the book enters your inventory.",
-      "complete_when": { "type": "receive_item", "location": "library", "npc_role": "librarian", "item_id": "boat_building_manual" }
-    },
-    {
-      "id": "leo_last_stop",
-      "title": "One Last Stop",
-      "place": "Café · Leo",
-      "detail": "Talk to Leo in English and take a break before your journey.",
-      "complete_when": { "type": "talk", "location": "cafe", "npc_role": "barista" }
+      "tier": 2,
+      "cefr": "A2",
+      "chapter": {
+        "id": "old_friend",
+        "label": "CHAPTER 02 · AN OLD FRIEND",
+        "title": "An Old Friend",
+        "intro": "Someone in town still remembers you. Make a plan, keep your word, and get the boat ready for the misty pass.",
+        "complete_title": "CHAPTER 2 COMPLETE",
+        "complete_text": "The boat floats this time! The Misty Pass is coming soon."
+      },
+      "quests": [
+        {
+          "id": "sam_reunion",
+          "title": "Morning Bread",
+          "place": "Bakery · morning",
+          "detail": "Visit the bakery in the morning (06:00–12:00). Sleep in your bed at home if it is late.",
+          "complete_when": {
+            "type": "scene",
+            "scene_id": "meet_sam",
+            "trigger": { "near_building": "bakery", "from": "06:00", "to": "12:00" }
+          },
+          "on_complete": { "phone": [{ "npc_id": "sam", "text": "Hey, it's Sam! This is my number. Text me back? 😄" }] }
+        },
+        {
+          "id": "text_sam_back",
+          "title": "Text Sam Back",
+          "place": "Phone · Sam",
+          "detail": "Open your phone (M) and answer Sam's message in English.",
+          "complete_when": { "type": "talk", "location": "town", "npc_role": "friend" },
+          "on_complete": { "phone": [{ "npc_id": "sam", "text": "I got my camera bag! Do you want to meet today? Where and when?" }] }
+        },
+        {
+          "id": "meet_sam",
+          "title": "Meet Sam",
+          "place": "Phone · Sam",
+          "detail": "Agree on a place and a time with Sam, then be there. Sam waits for one game hour.",
+          "complete_when": { "type": "plan_resolved", "npc_id": "sam" }
+        },
+        {
+          "id": "ready_to_sail",
+          "title": "Ready to Sail",
+          "place": "Pier · Sam",
+          "detail": "Bring the boat-building handbook to the pier. Sam is fixing a little boat there.",
+          "complete_when": {
+            "type": "reach_place",
+            "place_id": "pier",
+            "scene_id": "pier_departure",
+            "items": ["boat_building_manual"]
+          }
+        }
+      ]
     }
   ]
 }

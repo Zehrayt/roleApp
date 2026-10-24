@@ -1,3 +1,4 @@
+import type { ScheduleEntry } from "./npcSchedule";
 import { Block } from "./blocks";
 import { createRng } from "./rng";
 import { VoxelWorld } from "./VoxelWorld";
@@ -10,7 +11,7 @@ import { VoxelWorld } from "./VoxelWorld";
  */
 
 export const GROUND_Y = 1;
-export const TOWN_SIZE = { width: 40, height: 16, depth: 40 } as const;
+export const TOWN_SIZE = { width: 56, height: 16, depth: 56 } as const;
 
 export interface Cell {
   x: number;
@@ -29,7 +30,7 @@ export interface CharacterLook {
 }
 
 /** Keys of ROLEPLAY_TTS_PROFILES in services/PraglishApiClient.ts. */
-export type NpcVoice = "cafeNpc" | "librarian" | "barista";
+export type NpcVoice = "cafeNpc" | "librarian" | "barista" | "friend";
 
 export interface NpcSpec {
   id: string;
@@ -45,7 +46,29 @@ export interface NpcSpec {
   /** Ambient line shown over the NPC's head before a conversation starts. */
   greeting: string;
   look: CharacterLook;
+  /** Optional daily routine: the NPC walks to each cell at its time (gameClock.ts). */
+  schedule?: ScheduleEntry[];
+  /** Hidden until the quest that plays this cutscene is done (Sam appears in Kademe 2's first scene). */
+  appearsAfterScene?: string;
 }
+
+/**
+ * Places Sam can meet the player (api/game_data/plans.json place ids). `cell` is where
+ * Sam waits; the player counts as arrived inside `buildingId`, or within `radius` cells.
+ */
+export interface MeetingPlace {
+  cell: Cell;
+  buildingId?: string;
+  radius?: number;
+}
+
+export const MEETING_PLACES: Record<string, MeetingPlace> = {
+  cafe: { cell: { x: 7, z: 30 }, buildingId: "cafe" },
+  bakery: { cell: { x: 9, z: 9 }, buildingId: "bakery" },
+  library: { cell: { x: 31, z: 9 }, buildingId: "library" },
+  plaza: { cell: { x: 24, z: 22 }, radius: 4 },
+  pier: { cell: { x: 20, z: 50 }, radius: 4 },
+};
 
 export interface BlockPos {
   x: number;
@@ -75,7 +98,7 @@ export interface Portal {
 
 /** A full-screen activity hosted by a building (e.g. the dub studio). */
 export interface Activity {
-  id: "dub";
+  id: "dub" | "sleep";
   /** Text on the interaction prompt. */
   label: string;
   /** Key that opens it (besides Enter), shown on the prompt. */
@@ -277,7 +300,49 @@ export function buildTown(seed = 20261012): TownDefinition {
   world.set(32, 2, 31, Block.DARK); // shop counter
   world.fill(30, GROUND_Y, 21, 30, GROUND_Y, 25, Block.COBBLE);
 
-  const trees: Array<[number, number]> = [[17, 8], [2, 15], [37, 15], [16, 37], [2, 37], [37, 37], [22, 9]];
+  // The player's home — the day starts here; the bed skips the night (2 real minutes = 1 game hour).
+  const bed = blockRange(41, 2, 7, 42, 2, 7);
+  buildings.push(placeBuilding(world, {
+    id: "home", name: "Home",
+    x0: 40, z0: 6, w: 8, d: 7,
+    wall: Block.PLASTER, roof: Block.DARK, floor: Block.PLANKS,
+    door: { x: 43, z: 12 },
+    windows: [{ x: 41, z: 12 }, { x: 46, z: 12 }, { x: 47, z: 9 }],
+    activity: { id: "sleep", label: "Sleep until morning", key: "Z", anchors: bed },
+  }));
+  for (const b of bed) world.set(b.x, b.y, b.z, Block.BED);
+  world.set(46, 2, 7, Block.DARK); // desk
+  world.set(46, 2, 10, Block.LEAVES); // potted plant
+  world.fill(43, GROUND_Y, 13, 43, GROUND_Y, 18, Block.COBBLE);
+
+  // Sam's house, across the road from the player's.
+  buildings.push(placeBuilding(world, {
+    id: "sam_home", name: "Sam's House",
+    x0: 40, z0: 26, w: 8, d: 7,
+    wall: Block.BRICK, roof: Block.ROOF, floor: Block.PLANKS,
+    door: { x: 43, z: 26 },
+    windows: [{ x: 41, z: 26 }, { x: 46, z: 26 }, { x: 47, z: 29 }],
+  }));
+  world.fill(45, 2, 31, 46, 2, 31, Block.BED);
+  world.set(41, 2, 31, Block.SHELF); // photo prints and old cameras
+  world.fill(43, GROUND_Y, 21, 43, GROUND_Y, 25, Block.COBBLE);
+
+  // Beach, sea and the pier at the south end of the main road (Kademe 2, scene 3).
+  world.fill(0, GROUND_Y, 44, width - 1, GROUND_Y, 47, Block.SAND);
+  world.fill(0, GROUND_Y, 48, width - 1, GROUND_Y, depth - 1, Block.WATER);
+  world.fill(19, GROUND_Y, 44, 20, GROUND_Y, 47, Block.PLANKS);
+  world.fill(19, GROUND_Y, 48, 20, GROUND_Y, 54, Block.PLANKS); // pier deck
+  for (const z of [48, 51, 54]) {
+    world.set(18, GROUND_Y, z, Block.LOG);
+    world.set(21, GROUND_Y, z, Block.LOG);
+  }
+  // Sam's little boat, moored beside the end of the pier.
+  world.fill(22, GROUND_Y, 51, 24, GROUND_Y, 54, Block.PLANKS);
+  world.fill(22, 2, 51, 24, 2, 51, Block.LOG);
+  world.fill(22, 2, 54, 24, 2, 54, Block.LOG);
+  world.fill(24, 2, 52, 24, 2, 53, Block.LOG);
+
+  const trees: Array<[number, number]> = [[17, 8], [2, 15], [37, 15], [16, 37], [2, 37], [37, 37], [22, 9], [52, 15], [52, 36], [33, 41], [8, 41], [51, 4]];
   for (const [x, z] of trees) placeTree(world, x, z, rng);
   for (let i = 0; i < 14; i++) {
     const x = 22 + Math.floor(rng() * 4);
@@ -304,6 +369,19 @@ export function buildTown(seed = 20261012): TownDefinition {
       greeting: "Hey! What can I get you? Today's playlist is great.",
       look: { shirt: "#2f4d3a", pants: "#2a2a2a", skin: "#a8724f", hair: "#1a1210", eye: "#1a1210", apron: true },
     },
+    {
+      // Kademe 2: the player's childhood friend. Walks a daily routine (2 real minutes = 1 game hour).
+      id: "sam", name: "Sam", title: "Friend", location: "town", npcRole: "friend", voice: "friend",
+      buildingId: "sam_home", cell: { x: 44, z: 29 }, appearsAfterScene: "meet_sam",
+      greeting: "Hey! Want to see my photos?",
+      look: { shirt: "#e0a43a", pants: "#3b4a6b", skin: "#c98e63", hair: "#3a2414", eye: "#2b1d12" },
+      schedule: [
+        { from: "22:00", to: "12:00", cell: { x: 44, z: 29 } }, // home
+        { from: "12:00", to: "14:30", cell: { x: 24, z: 22 } }, // plaza, photographing the fountain
+        { from: "14:30", to: "17:00", cell: { x: 22, z: 45 } }, // beach by the pier
+        { from: "17:00", to: "22:00", cell: { x: 7, z: 30 } }, // Leo's café
+      ],
+    },
   ];
 
   const props: PropSpec[] = [
@@ -318,5 +396,5 @@ export function buildTown(seed = 20261012): TownDefinition {
     { id: "cafe-counter", buildingId: "cafe", location: "cafe", concept: "counter", blocks: blockRange(10, 2, 31, 12, 2, 31) },
   ];
 
-  return { world, buildings, npcs, props, spawn: { x: 8, z: 15 } };
+  return { world, buildings, npcs, props, spawn: { x: 43, z: 14 } };
 }

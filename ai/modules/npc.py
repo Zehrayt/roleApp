@@ -27,6 +27,62 @@ def _focus_words_instruction(identity: NPCIdentity) -> str:
     )
 
 
+TIER_TONE = {
+    "hostile": "You dislike this player. Stay civil but curt, and do no favours beyond the basics.",
+    "cold": "You are a bit wary of this player. Be polite but reserved.",
+    "neutral": "You treat this player like any friendly customer.",
+    "friendly": "You like this player. Be warm and a little more generous with tips and help.",
+    "close": "This player is a good friend. Be openly warm and happy to see them.",
+}
+
+
+def _memory_instruction(identity: NPCIdentity) -> str:
+    parts: list[str] = []
+    tone = TIER_TONE.get(identity.relationship_tier or "")
+    if tone:
+        parts.append(f"Your relationship with the player: {identity.relationship_tier}. {tone} "
+                     "Never mention scores or tiers.")
+    if identity.memories:
+        lines = "\n".join(f"- {memory}" for memory in identity.memories)
+        parts.append(
+            "What you remember about this player. (witnessed) items are things you saw yourself; "
+            "(heard) items are rumours another townsperson told you, so if you bring one up, present "
+            "it as hearsay (\"I heard...\"), never as something you saw. Mention a memory only when it "
+            "fits the moment, at most one per reply, and never invent other shared history:\n" + lines
+        )
+    return "".join(f"{part}\n\n" for part in parts)
+
+
+def _plan_instruction(identity: NPCIdentity) -> str:
+    if not identity.world_time and not identity.plan_notes:
+        return ""
+    lines = "\n".join(f"- {note}" for note in identity.plan_notes)
+    return (
+        f"It is now {identity.world_time}. You can make plans to meet the player. "
+        "Agree to a plan only when the player names a place in town and a time; ask for whatever is "
+        "missing. Say clearly when you agree (\"Deal! Six at Leo's café.\"). Follow these rules and "
+        "facts:\n" + lines + "\n\n"
+    )
+
+
+def _level_instruction(identity: NPCIdentity) -> str:
+    if not identity.cefr_level:
+        return ""
+    return (
+        f"Use English the player can follow at CEFR {identity.cefr_level}: common words and short, "
+        "clear sentences for that level.\n\n"
+    )
+
+
+def _channel_instruction(identity: NPCIdentity) -> str:
+    if identity.scenario_state.get("channel") != "phone":
+        return ""
+    return (
+        "You are texting the player on the phone, not talking face to face. Write like a "
+        "short, friendly text message: no actions, no stage directions, at most one emoji.\n\n"
+    )
+
+
 def _npc_system_instruction(identity: NPCIdentity) -> str:
     return (
         "You are an NPC in an English-learning role-play game. "
@@ -43,7 +99,12 @@ def _npc_system_instruction(identity: NPCIdentity) -> str:
         "offer as a completed handover. Avoid inventing administrative barriers, such "
         "as a library card, unless the conversation has established one.\n\n"
         f"{_focus_words_instruction(identity)}"
-        f"NPC identity and scenario data:\n{identity.model_dump_json(indent=2)}"
+        f"{_memory_instruction(identity)}"
+        f"{_level_instruction(identity)}"
+        f"{_channel_instruction(identity)}"
+        f"{_plan_instruction(identity)}"
+        f"NPC identity and scenario data:\n"
+        f"{identity.model_dump_json(indent=2, exclude={'memories', 'relationship_tier', 'world_time', 'plan_notes', 'cefr_level'})}"
     )
 
 

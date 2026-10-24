@@ -124,6 +124,9 @@ export function paintBlockAtlas(seed = 20261012): HTMLCanvasElement {
     return x % 2 === 0 ? c : "#1e140c";
   });
   paint(Tile.water, (x, y) => ((x + 2 * y) % 7 === 0 && rng() < 0.6 ? "#86b6f0" : pick(rng, ["#3b74c9", "#4682d6", "#3368b8"])));
+  paint(Tile.sand, () => pick(rng, ["#e8d39a", "#e2cb8d", "#eedcab", "#d9c083"]));
+  // Patchwork quilt: red and cream squares with a white pillow band at the top.
+  paint(Tile.quilt, (x, y) => (y < 4 ? "#f6f1e4" : ((x >> 2) + (y >> 2)) % 2 === 0 ? "#c4473a" : "#efe2c4"));
 
   return canvas;
 }

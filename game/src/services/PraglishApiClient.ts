@@ -27,6 +27,41 @@ export interface TurnResponse {
   adventure_stage?: number | null;
   inventory_changes?: InventoryEntry[];
   adventure_notice?: string | null;
+  /** How this NPC feels about the player after the turn (api/game_data/npcs.json rules). */
+  relationship?: NpcRelationship | null;
+  /** Player-facing lines for things the NPC will now remember. */
+  new_memories?: string[];
+  /** Set when this turn made, moved or cancelled a meeting (api/services/plans.py). */
+  plan_update?: PlanUpdate | null;
+}
+
+export interface Appointment {
+  id: number;
+  npc_id: string;
+  npc_name: string;
+  place_id: string;
+  place_name: string;
+  game_seconds: number;
+  label: string;
+  status: "planned" | "kept" | "missed" | "cancelled";
+  late_minutes: number;
+  wait_minutes: number;
+}
+
+export interface PlanUpdate {
+  status: "planned" | "cancelled" | "rejected";
+  message: string;
+  appointment?: Appointment | null;
+}
+
+export type RelationshipTier = "hostile" | "cold" | "neutral" | "friendly" | "close";
+
+export interface NpcRelationship {
+  npc_id: string;
+  name: string;
+  sympathy: number;
+  trust: number;
+  tier: RelationshipTier | string;
 }
 
 export interface InventoryEntry {
@@ -45,22 +80,96 @@ export interface AdventureChapter {
   complete_text: string;
 }
 
+export interface QuestRule {
+  type: "receive_item" | "talk" | "scene" | "plan_resolved" | "reach_place";
+  scene_id?: string | null;
+  place_id?: string;
+  npc_id?: string;
+  trigger?: { near_building: string; from: string; to: string };
+}
+
 export interface AdventureQuest {
   id: string;
   title: string;
   place: string;
   detail: string;
+  complete_when?: QuestRule;
 }
 
-export interface AdventureContent {
+/** One kademe: its chapter text, language level and quests (api/game_data/adventure.json). */
+export interface AdventureTier {
+  tier: number;
+  cefr: string;
   chapter: AdventureChapter;
   quests: AdventureQuest[];
 }
 
+export interface AdventureContent {
+  tiers: AdventureTier[];
+}
+
+export interface AdventureFlags {
+  kept_meeting: boolean;
+  missed_meeting: boolean;
+}
+
 export interface AdventureState {
+  /** Index of the active quest across all tiers laid end to end. */
   stage: number;
   inventory: InventoryEntry[];
   adventure: AdventureContent;
+  flags?: AdventureFlags;
+}
+
+/** A cutscene played by the town engine (api/game_data/cutscenes/<id>.json). */
+export interface Cutscene {
+  id: string;
+  title: string;
+  steps: CutsceneStep[];
+}
+
+export type CutsceneTarget = string | { x: number; z: number };
+
+export interface CutsceneStep {
+  when?: "kept_meeting" | "missed_meeting";
+  camera?: { focus: CutsceneTarget; zoom?: number };
+  title?: { text: string; seconds: number };
+  place?: { who: string; cell: { x: number; z: number } };
+  walk?: { who: string; to?: { x: number; z: number }; near?: string; run?: boolean; wait?: boolean };
+  say?: { who: string; text: string };
+  effect?: "flash" | "fade_out" | "fade_in";
+  wait?: number;
+  toast?: string;
+}
+
+export interface ReachResult extends AdventureState {
+  completed: boolean;
+  scene_id: string | null;
+  missing: string[];
+}
+
+export interface PhoneMessage {
+  id: number;
+  speaker: "user" | "npc" | "coach";
+  text: string;
+}
+
+export interface PhoneThread {
+  session_id: number;
+  contact: string;
+  messages: PhoneMessage[];
+  unread: number;
+  seen_id: number;
+}
+
+/** The in-game clock as the API reports it (api/services/world_clock.py). */
+export interface ClockState {
+  game_seconds: number;
+  day: number;
+  hour: number;
+  minute: number;
+  label: string;
+  game_seconds_per_real_second: number;
 }
 
 export interface TtsVoiceProfile {
@@ -69,6 +178,10 @@ export interface TtsVoiceProfile {
 }
 
 export const ROLEPLAY_TTS_PROFILES = {
+  friend: {
+    voice: "troy",
+    style: "Speak as an excited, energetic young man catching up with an old friend. Slightly breathless, laughs easily, natural relaxed pace.",
+  },
   librarian: {
     voice: "diana",
     style: "Speak naturally and warmly as a patient, knowledgeable female librarian at a relaxed conversational pace.",
@@ -211,6 +324,59 @@ export class PraglishApiClient {
     return this.request<TurnResponse>(`/api/session/${sessionId}/turn`, {
       user_text: userText,
     });
+  }
+
+  /** Advance the server-owned game clock by the real time since the last tick (POST /api/world/clock/tick). */
+  public async tickClock(): Promise<ClockState> {
+    await this.startSession(); // creates the guest account on a first visit
+    return this.request<ClockState>("/api/world/clock/tick", {});
+  }
+
+  /** Sleep until 07:00; the API answers 409 before 20:00. */
+  public async sleep(): Promise<ClockState> {
+    await this.startSession();
+    return this.request<ClockState>("/api/world/sleep", {});
+  }
+
+  /** The persistent text thread with a phone contact (GET /api/phone/{contact}). */
+  public async getPhoneThread(contact: string): Promise<PhoneThread> {
+    await this.startSession();
+    return this.requestGet<PhoneThread>(`/api/phone/${encodeURIComponent(contact)}`);
+  }
+
+  public async getCutscene(sceneId: string): Promise<Cutscene> {
+    await this.startSession();
+    return this.requestGet<Cutscene>(`/api/adventure/cutscenes/${encodeURIComponent(sceneId)}`);
+  }
+
+  /** The player watched (or skipped) a scene; may finish a scene quest. */
+  public async sceneSeen(sceneId: string): Promise<AdventureState & { completed: boolean }> {
+    return this.request(`/api/adventure/scenes/${encodeURIComponent(sceneId)}/seen`, {});
+  }
+
+  /** The player reached a place; may finish a reach_place quest. */
+  public async reachPlace(placeId: string): Promise<ReachResult> {
+    return this.request<ReachResult>(`/api/adventure/reach/${encodeURIComponent(placeId)}`, {});
+  }
+
+  /** Upcoming meetings (GET /api/plans). */
+  public async getPlans(): Promise<Appointment[]> {
+    await this.startSession();
+    return (await this.requestGet<{ plans: Appointment[] }>("/api/plans")).plans;
+  }
+
+  /** Tell the server the player reached the meeting place; it checks its own clock. */
+  public async arriveForPlan(appointmentId: number): Promise<{ appointment: Appointment; memory: string | null }> {
+    return this.request(`/api/plans/${appointmentId}/arrive`, {});
+  }
+
+  public async markPhoneRead(contact: string, lastId: number): Promise<void> {
+    await this.request(`/api/phone/${encodeURIComponent(contact)}/read`, { last_id: lastId });
+  }
+
+  /** Send a text in a phone thread; it goes through the normal turn pipeline. */
+  public async sendPhoneMessage(threadSessionId: number, text: string): Promise<TurnResponse> {
+    return this.request<TurnResponse>(`/api/session/${threadSessionId}/turn`, { user_text: text });
   }
 
   public async getAdventureState(): Promise<AdventureState> {

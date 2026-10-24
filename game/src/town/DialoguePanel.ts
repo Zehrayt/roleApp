@@ -1,6 +1,7 @@
 import {
   ROLEPLAY_TTS_PROFILES,
   type PraglishApiClient,
+  type NpcRelationship,
   type TurnResponse,
 } from "../services/PraglishApiClient";
 import { getRememberedDialogue, rememberDialogueMessage } from "../services/RoleplayMemory";
@@ -15,7 +16,15 @@ export interface DialoguePanelEvents {
   onAcceptedTurn?(result: TurnResponse): void;
 }
 
-type MessageKind = "user" | "npc" | "feedback" | "reward" | "error";
+type MessageKind = "user" | "npc" | "feedback" | "reward" | "memory" | "error";
+
+const BOND_LABELS: Record<string, { icon: string; text: string }> = {
+  hostile: { icon: "✖", text: "Hostile" },
+  cold: { icon: "❄", text: "Cold" },
+  neutral: { icon: "◇", text: "Neutral" },
+  friendly: { icon: "♥", text: "Friendly" },
+  close: { icon: "★", text: "Close friend" },
+};
 
 const MIC_ICON = `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill="currentColor"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M12 17.5V21M8.5 21h7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 const STOP_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>`;
@@ -38,6 +47,7 @@ export class DialoguePanel {
   private chunks: BlobPart[] = [];
   private recording = false;
   private audio: HTMLAudioElement | null = null;
+  private readonly bond: HTMLElement;
 
   constructor(
     npc: NpcSpec,
@@ -54,7 +64,7 @@ export class DialoguePanel {
     this.root.setAttribute("aria-label", `Conversation with ${npc.name}`);
     this.root.innerHTML = `
       <header class="town-dialogue__head">
-        <div><strong data-name></strong><span data-title></span></div>
+        <div><strong data-name></strong><span data-title></span><span class="town-dialogue__bond" data-bond hidden></span></div>
         <button type="button" class="town-dialogue__close" aria-label="Close conversation">Close <kbd>Esc</kbd></button>
       </header>
       <div class="town-dialogue__messages" aria-live="polite"></div>
@@ -73,6 +83,7 @@ export class DialoguePanel {
     };
     q<HTMLElement>("[data-name]").textContent = npc.name;
     q<HTMLElement>("[data-title]").textContent = `${npc.title} · AI`;
+    this.bond = q("[data-bond]");
     this.messages = q(".town-dialogue__messages");
     this.status = q(".town-dialogue__status");
     this.form = q(".town-dialogue__form");
@@ -166,11 +177,24 @@ export class DialoguePanel {
     for (const change of result.inventory_changes ?? []) {
       this.append("INVENTORY", `${change.quantity > 0 ? "+" : ""}${change.quantity} ${change.name}`, "reward");
     }
+    for (const memory of result.new_memories ?? []) this.append("MEMORY", memory, "memory");
+    if (result.plan_update) {
+      this.append("PLAN", result.plan_update.message, result.plan_update.status === "rejected" ? "error" : "reward");
+    }
     if (result.adventure_notice) this.append("SYSTEM", result.adventure_notice, "error");
+    if (result.relationship) this.showBond(result.relationship);
     if (result.accepted) this.events.onAcceptedTurn?.(result);
     const seconds = Math.min(12, 2.5 + result.npc_response.split(/\s+/).length * 0.35);
     this.events.onReply(result.npc_response, coach ? "coach" : "npc", seconds);
     void this.speak(result.npc_response, coach);
+  }
+
+  private showBond(relationship: NpcRelationship): void {
+    const label = BOND_LABELS[relationship.tier] ?? { icon: "◇", text: relationship.tier };
+    this.bond.textContent = `${label.icon} ${label.text}`;
+    this.bond.dataset.tier = relationship.tier;
+    this.bond.title = `${this.npc.name} feels ${label.text.toLowerCase()} toward you`;
+    this.bond.hidden = false;
   }
 
   private async speak(text: string, coach: boolean): Promise<void> {

@@ -1,5 +1,5 @@
 import type { AdventureContent, AdventureState, InventoryEntry } from "../services/PraglishApiClient";
-import { clampStage, questStatus } from "./adventureProgress";
+import { allQuests, clampStage, questStatus, tierView } from "./adventureProgress";
 import "./adventure.css";
 
 export class AdventureJournal {
@@ -71,13 +71,13 @@ export class AdventureJournal {
   }
 
   setState(state: AdventureState): void {
-    if (!state.adventure?.quests?.length) {
+    if (!state.adventure?.tiers?.length) {
       // An API without adventure content (old build or bad deploy) is a load failure, not an empty chapter.
       this.setError("Could not load quests. Refresh the page and try again.");
       return;
     }
     this.adventure = state.adventure;
-    this.stage = clampStage(state.stage, state.adventure.quests.length);
+    this.stage = clampStage(state.stage, allQuests(state.adventure).length);
     this.inventory = state.inventory;
     this.loaded = true;
     this.loadError = null;
@@ -91,7 +91,7 @@ export class AdventureJournal {
   }
 
   setStage(stage: number): void {
-    this.stage = clampStage(stage, this.adventure?.quests.length ?? stage);
+    this.stage = clampStage(stage, this.adventure ? allQuests(this.adventure).length : stage);
     this.loaded = true;
     this.loadError = null;
     this.render();
@@ -118,16 +118,19 @@ export class AdventureJournal {
       this.content.innerHTML = `<p class="adventure-board__next" role="status">${this.loadError ? "The game server did not respond. Make sure the API is running, then refresh the page." : "Loading your quests…"}</p>`;
       return;
     }
-    const { chapter, quests } = adventure;
-    const done = this.stage >= quests.length;
-    const active = quests[this.stage];
+    const view = tierView(adventure, this.stage);
+    if (!view) return;
+    const { chapter, quests } = view.tier;
+    const local = view.stage;
+    const done = view.done;
+    const active = quests[local];
     this.hero.innerHTML = `<span>${escapeHtml(chapter.label)}</span><h1>${escapeHtml(chapter.title)}</h1><p>${escapeHtml(chapter.intro)}</p>`;
     this.tracker.innerHTML = `<span>✦ ADVENTURE QUEST</span><strong>${escapeHtml(done ? chapter.complete_title : active?.title ?? "Quest")}</strong><small>${done ? "Open the quest journal" : escapeHtml(active?.place ?? "")} ↗</small>`;
     this.content.innerHTML = `
-      <div class="adventure-board__section"><div><span class="adventure-board__eyebrow">QUEST CHAIN</span><h2>${done ? "The Journey Begins" : "Next Step"}</h2></div><span class="adventure-board__count">${Math.min(this.stage, quests.length)} / ${quests.length}</span></div>
+      <div class="adventure-board__section"><div><span class="adventure-board__eyebrow">QUEST CHAIN</span><h2>${done ? "The Journey Begins" : "Next Step"}</h2></div><span class="adventure-board__count">${Math.min(local, quests.length)} / ${quests.length}</span></div>
       <section class="adventure-inventory" aria-label="Inventory"><strong>🎒 INVENTORY</strong><span>${escapeHtml(inventoryText)}</span></section>
       <div class="adventure-steps">${quests.map((quest, index) => {
-        const status = questStatus(index, this.stage);
+        const status = questStatus(index, local);
         const badge = { done: "✓", active: "◆", locked: "▣" }[status];
         return `<article class="adventure-step is-${status}"><span class="adventure-step__badge">${badge}</span><div><small>QUEST ${String(index + 1).padStart(2, "0")} · ${escapeHtml(quest.place)}</small><h3>${escapeHtml(quest.title)}</h3><p>${escapeHtml(quest.detail)}</p></div><span class="adventure-step__state">${status.toUpperCase()}</span></article>`;
       }).join("")}</div>

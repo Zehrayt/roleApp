@@ -7,7 +7,9 @@ from fastapi.responses import JSONResponse
 
 from core.migrate import upgrade_database
 from services.adventure_quests import load_adventure
-from routes import adventure, analytics, dub, leaderboard, session, speech, spellbook, turn, user, vocabulary
+from services.npc_memory import load_npcs
+from services.plans import load_plans
+from routes import adventure, analytics, dub, leaderboard, session, phone, plans, speech, spellbook, turn, user, vocabulary, world
 
 logger = logging.getLogger("uvicorn.error")
 
@@ -58,12 +60,17 @@ app.include_router(dub.router, prefix="/api/dub", tags=["dub"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 app.include_router(spellbook.router, prefix="/api/spellbook", tags=["spellbook"])
 app.include_router(adventure.router, prefix="/api/adventure", tags=["adventure"])
+app.include_router(world.router, prefix="/api/world", tags=["world"])
+app.include_router(phone.router, prefix="/api/phone", tags=["phone"])
+app.include_router(plans.router, prefix="/api/plans", tags=["plans"])
 
 
 @app.on_event("startup")
 def on_startup():
-    # Fail fast on a broken api/game_data/adventure.json instead of on the first quest turn.
+    # Fail fast on broken game_data content instead of on the first quest turn.
     load_adventure()
+    load_npcs()
+    load_plans()
     upgrade_database()
 
 

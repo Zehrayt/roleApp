@@ -129,6 +129,7 @@ describe("town map", () => {
       "bakery/baker",
       "cafe/barista",
       "library/librarian",
+      "town/friend",
     ]);
   });
 

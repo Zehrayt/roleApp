@@ -25,6 +25,8 @@ export const Tile = {
   water: 14,
   dark: 15,
   cdShelf: 16,
+  sand: 17,
+  quilt: 18,
 } as const;
 
 export const Block = {
@@ -44,6 +46,8 @@ export const Block = {
   WATER: 13,
   DARK: 14,
   CD_SHELF: 15,
+  SAND: 16,
+  BED: 17,
 } as const;
 
 export type BlockId = (typeof Block)[keyof typeof Block];
@@ -86,6 +90,8 @@ DEFS[Block.SHELF] = def("shelf", Tile.planks, Tile.shelf, Tile.planks);
 DEFS[Block.WATER] = def("water", Tile.water, Tile.water, Tile.water, false, false);
 DEFS[Block.DARK] = def("dark planks", Tile.dark);
 DEFS[Block.CD_SHELF] = def("cd shelf", Tile.dark, Tile.cdShelf, Tile.dark);
+DEFS[Block.SAND] = def("sand", Tile.sand);
+DEFS[Block.BED] = def("bed", Tile.quilt, Tile.planks, Tile.planks);
 
 export function getBlockDef(id: number): BlockDef | undefined {
   return DEFS[id];

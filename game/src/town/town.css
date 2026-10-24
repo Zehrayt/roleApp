@@ -124,6 +124,10 @@ kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.75; margin-l
 .town-dialogue__msg.is-feedback span { color: var(--accent); }
 .town-dialogue__msg.is-reward span { color: var(--good); }
 .town-dialogue__msg.is-error span { color: var(--bad); }
+.town-dialogue__msg.is-memory span { color: var(--panel-muted); font-style: italic; }
+.town-dialogue__head .town-dialogue__bond { margin-left: 10px; padding: 1px 8px; border: 1px solid currentColor; border-radius: 999px; font-size: 11px; color: var(--panel-muted); }
+.town-dialogue__head .town-dialogue__bond[data-tier="friendly"], .town-dialogue__head .town-dialogue__bond[data-tier="close"] { color: var(--good); }
+.town-dialogue__head .town-dialogue__bond[data-tier="cold"], .town-dialogue__head .town-dialogue__bond[data-tier="hostile"] { color: var(--bad); }
 .town-dialogue__status { margin: 0; min-height: 16px; font-size: 12px; color: var(--panel-muted); }
 .town-dialogue__form { display: flex; gap: 8px; }
 .town-dialogue__form input {
@@ -221,3 +225,21 @@ kbd { font-family: var(--font-display); font-size: 11px; opacity: 0.75; margin-l
   background: rgba(242, 177, 52, 0.22); color: inherit;
   border-bottom: 2px dotted var(--accent); border-radius: 2px; padding: 0 2px;
 }
+
+/* In-game clock (gameClock.ts), top centre. */
+.town-clock {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  padding: 6px 14px; border-radius: 4px; background: var(--panel); border: 1px solid var(--panel-line);
+  font: 700 16px var(--font-display); color: var(--panel-fg); letter-spacing: .04em; pointer-events: none;
+}
+.town-toast {
+  position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+  padding: 8px 16px; border-radius: 4px; background: var(--panel); border: 1px solid var(--accent);
+  color: var(--panel-fg); font-size: 15px; pointer-events: none;
+}
+/* Sleeping: a short fade to black while the clock jumps to morning. */
+#town::after {
+  content: ""; position: absolute; inset: 0; background: #05070d; opacity: 0; pointer-events: none;
+  transition: opacity .6s ease; z-index: 20;
+}
+#town.is-sleeping::after { opacity: 1; }

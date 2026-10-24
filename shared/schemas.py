@@ -27,6 +27,15 @@ class NPCIdentity(BaseModel):
     scenario_state: dict[str, Any] = Field(default_factory=dict)
     # Spell Book words the player struggles with; used only if they fit naturally.
     focus_words: list[str] = Field(default_factory=list)
+    # Event-backed memories about the player, "(witnessed) ..." or "(heard) ..." (roleApp 7.3).
+    memories: list[str] = Field(default_factory=list)
+    # Sympathy tier: hostile, cold, neutral, friendly or close (roleApp 6.1).
+    relationship_tier: Optional[str] = None
+    # NPCs who can make plans: the game clock and the rules/plans they must respect (Kademe 2).
+    world_time: Optional[str] = None
+    plan_notes: list[str] = Field(default_factory=list)
+    # The player's adventure tier sets the NPC's language ceiling (Kademe: A1, A2, B1…).
+    cefr_level: Optional[str] = None
 
 
 class LanguageEvaluationInput(BaseModel):
@@ -144,6 +153,12 @@ class EvaluateRequest(BaseModel):
     user_text: str
     # Red/yellow Spell Book words chosen by the API for this turn (roleApp 4.5).
     focus_words: list[str] = Field(default_factory=list)
+    # What this NPC remembers about the player and how it feels (roleApp 6.1, 7.3).
+    npc_memories: list[str] = Field(default_factory=list)
+    relationship_tier: Optional[str] = None
+    world_time: Optional[str] = None
+    plan_notes: list[str] = Field(default_factory=list)
+    cefr_level: Optional[str] = None
 
 
 class RewardInfo(BaseModel):
@@ -167,6 +182,11 @@ class EvaluateResponse(BaseModel):
     adventure_stage: Optional[int] = None
     inventory_changes: list[dict[str, Any]] = Field(default_factory=list)
     adventure_notice: Optional[str] = None
+    # Set by the API: the NPC's relationship after this turn and anything it newly remembers.
+    relationship: Optional[dict[str, Any]] = None
+    new_memories: list[str] = Field(default_factory=list)
+    # Set by the API when this turn made, moved or cancelled a meeting.
+    plan_update: Optional[dict[str, Any]] = None
 
 
 class InventoryEntry(BaseModel):
@@ -201,6 +221,32 @@ class InventoryDecisionRequest(BaseModel):
 
 class InventoryDecisionResponse(BaseModel):
     transfers: list[InventoryTransfer] = Field(default_factory=list)
+
+
+class KnownPlace(BaseModel):
+    place_id: str
+    name: str
+    aliases: list[str] = Field(default_factory=list)
+
+
+class PlanDecisionRequest(BaseModel):
+    npc_name: str
+    world_time: str
+    player_text: str
+    npc_reply: str
+    previous_dialogue: list[DialogueTurn] = Field(default_factory=list)
+    places: list[KnownPlace] = Field(default_factory=list)
+    current_plan: Optional[str] = None
+    missed_plan: Optional[str] = None
+
+
+class PlanDecisionResponse(BaseModel):
+    """What the latest exchange did to the meeting plan; the API validates and applies it."""
+    action: Literal["none", "create", "cancel"] = "none"
+    place_id: Optional[str] = Field(default=None, max_length=40)
+    time: Optional[str] = Field(default=None, pattern=r"^\d{1,2}:\d{2}$")
+    day: Literal["today", "tomorrow"] = "today"
+    apologized: bool = False
 
 
 class TTSRequest(BaseModel):

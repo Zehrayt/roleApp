@@ -14,6 +14,12 @@ class User(Base):
     coins = Column(Integer, default=0)
     xp = Column(Integer, default=0)
     adventure_stage = Column(Integer, nullable=False, default=0)
+    # In-game clock (services/world_clock.py): game time in seconds since Day 1 00:00,
+    # and the real UTC moment it was last advanced. The clock only runs while the game is open.
+    game_seconds = Column(Integer, nullable=False, default=8 * 3600)
+    clock_synced_at = Column(DateTime, nullable=True)
+    # Phone (services/phone.py): the newest NPC message the player has seen.
+    phone_seen_dialogue_id = Column(Integer, nullable=False, default=0)
 
     sessions = relationship("GameSession", back_populates="user")
 
@@ -73,6 +79,59 @@ class InventoryEvent(Base):
     item_id = Column(String, nullable=False)
     delta = Column(Integer, nullable=False)
     reason = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class NpcRelationship(Base):
+    """How one NPC feels about one player (roleApp 6.1). Rules live in game_data/npcs.json."""
+
+    __tablename__ = "npc_relationships"
+    __table_args__ = (UniqueConstraint("user_id", "npc_id", name="uq_npc_relationship"),)
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    npc_id = Column(String, nullable=False)
+    sympathy = Column(Integer, nullable=False, default=0)
+    trust = Column(Integer, nullable=False, default=40)
+    # Per-conversation cap for small-talk sympathy (roleApp 6.1).
+    turn_session_id = Column(Integer, nullable=True)
+    turn_sympathy_gained = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class NpcMemory(Base):
+    """One thing an NPC remembers about a player, always tied to a real game event (roleApp 7.6)."""
+
+    __tablename__ = "npc_memories"
+    __table_args__ = (
+        UniqueConstraint("user_id", "npc_id", "source_type", "source_id", name="uq_npc_memory_source"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    npc_id = Column(String, nullable=False)
+    kind = Column(String, nullable=False)  # "witnessed" or "heard"
+    text = Column(String, nullable=False)
+    source_type = Column(String, nullable=False)  # "inventory_event" or "quest"
+    source_id = Column(String, nullable=False)
+    heard_from = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class Appointment(Base):
+    """A meeting the player arranged with an NPC (services/plans.py)."""
+
+    __tablename__ = "appointments"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    npc_id = Column(String, nullable=False)
+    place_id = Column(String, nullable=False)
+    game_seconds = Column(Integer, nullable=False)  # meeting time on the in-game clock
+    status = Column(String, nullable=False, default="planned")  # planned, kept, missed, cancelled
+    reminded = Column(Boolean, nullable=False, default=False)
+    apologized = Column(Boolean, nullable=False, default=False)
+    source_dialogue_id = Column(Integer, ForeignKey("dialogues.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

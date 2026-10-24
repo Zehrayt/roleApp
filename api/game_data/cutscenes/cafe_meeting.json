@@ -1,0 +1,18 @@
+{
+  "id": "cafe_meeting",
+  "title": "You made it!",
+  "steps": [
+    { "camera": { "focus": { "x": 8, "z": 30 }, "zoom": 9 } },
+    { "walk": { "who": "sam", "to": { "x": 7, "z": 30 } } },
+    { "walk": { "who": "player", "to": { "x": 8, "z": 29 } } },
+    { "say": { "who": "sam", "text": "Hey, you made it! I got you a hot chocolate." } },
+    { "camera": { "focus": "leo", "zoom": 9 } },
+    { "say": { "who": "leo", "text": "He ordered it twenty minutes ago. It's not hot anymore!" } },
+    { "camera": { "focus": "sam", "zoom": 8 } },
+    { "say": { "who": "sam", "text": "Leo! Okay… it's a warm chocolate. Still good!" } },
+    { "title": { "text": "📷 An old photo: two kids and a broken raft", "seconds": 2.5 } },
+    { "say": { "who": "sam", "text": "Look. Our raft. Ten years ago." } },
+    { "say": { "who": "sam", "text": "This time, we read the book first. Promise?" } },
+    { "say": { "who": "sam", "text": "Meet me at the pier tomorrow morning. I'll bring the wood!" } }
+  ]
+}

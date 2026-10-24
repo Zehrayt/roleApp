@@ -7,13 +7,16 @@ from sqlalchemy.orm import Session
 
 from core.auth import authenticated_user
 from core.database import SessionLocal, get_db
-from models.models import Dialogue, GameSession, LearningTurnEvent, User
+from models.models import Dialogue, GameSession, InventoryEvent, LearningTurnEvent, User
 from services.adventure_inventory import apply_inventory_transfers, inventory_snapshot
-from services.adventure_quests import completes_talk_quest, item_catalog
-from services.ai_client import decide_inventory_transfers, evaluate_and_respond, extract_utterance
+from services.adventure_progress import after_quests
+from services.adventure_quests import completes_talk_quest, item_catalog, tier_for_stage
+from services.ai_client import decide_inventory_transfers, decide_plan, evaluate_and_respond, extract_utterance
+from services import plans, world_clock
 from services.dialogue_history import build_evaluator_history
 from services.extraction_eligibility import should_extract_after_turn
 from services.learning_analytics import LearningAnalyticsService
+from services import npc_memory
 from services.reward_engine import RewardEngine
 from services.scenario_engine import ScenarioEngine
 from services.word_events import focus_words_for, record_npc_exposure
@@ -24,6 +27,7 @@ from shared.schemas import (
     InventoryDecisionRequest,
     InventoryDecisionResponse,
     KnownItem,
+    PlanDecisionRequest,
     RewardInfo,
 )
 
@@ -114,6 +118,11 @@ async def process_turn(
         db.rollback()  # nothing has been written yet; keep the session usable
         focus_words = []
 
+    # What this NPC remembers about the player and how it feels about them (roleApp 6.1, 7.3).
+    npc = npc_memory.npc_for(session.location, session.npc_role)
+    npc_memories = npc_memory.memories_for_prompt(db, session.user_id, npc) if npc else []
+    relationship = npc_memory.relationship_view(db, session.user_id, npc) if npc else None
+
     payload = EvaluateRequest(
         location=session.location,
         npc_role=session.npc_role,
@@ -121,7 +130,15 @@ async def process_turn(
         dialogue_history=dialogue_history,
         user_text=request.user_text,
         focus_words=focus_words,
+        npc_memories=npc_memories,
+        relationship_tier=relationship.tier if relationship else None,
     )
+    if session.mode in ("adventure", "phone"):
+        payload.cefr_level = tier_for_stage(db.get(User, session.user_id).adventure_stage).cefr
+    if npc is not None and npc.meets:
+        owner = db.get(User, session.user_id)
+        payload.world_time = world_clock.view(owner.game_seconds).label
+        payload.plan_notes = plans.plan_notes(db, owner, npc)
 
 
 
@@ -189,7 +206,8 @@ async def process_turn(
         db.add(npc_dialogue)
         db.flush()
 
-    if session.mode == "adventure":
+    # Quests advance in Adventure and through the phone (Kademe 2), never in free Roleplay.
+    if session.mode in ("adventure", "phone"):
         # Serialize stage changes for this player, including simultaneous sessions.
         player = (
             db.query(User)
@@ -198,6 +216,7 @@ async def process_turn(
             .with_for_update()
             .one()
         )
+        stage_before = player.adventure_stage
         if npc_dialogue is not None and inventory_decision.transfers:
             result.inventory_changes = apply_inventory_transfers(
                 db, player, npc_dialogue, inventory_decision.transfers,
@@ -209,8 +228,55 @@ async def process_turn(
                 player.adventure_stage += 1
         result.adventure_stage = player.adventure_stage
 
+        # Turn confirmed handovers and finished quests into NPC memories and gossip.
+        if npc is not None and npc_dialogue is not None and result.inventory_changes:
+            db.flush()
+            events = (
+                db.query(InventoryEvent)
+                .filter(InventoryEvent.dialogue_id == npc_dialogue.id)
+                .order_by(InventoryEvent.id)
+                .all()
+            )
+            names = {change["item_id"]: change["name"] for change in result.inventory_changes}
+            for event in events:
+                text = npc_memory.record_inventory_event(
+                    db, session.user_id, npc, event_id=event.id,
+                    item_name=names.get(event.item_id, event.item_id.replace("_", " ")), delta=event.delta,
+                )
+                if text:
+                    result.new_memories.append(text)
+        for helper_id, text in after_quests(db, player, stage_before, player.adventure_stage):
+            if npc is not None and helper_id == npc.id:
+                result.new_memories.append(text)
 
 
+
+
+    if npc is not None and npc.meets and result.accepted and result.response_speaker == "npc":
+        owner = db.get(User, session.user_id)
+        try:
+            decision = await decide_plan(PlanDecisionRequest(
+                npc_name=npc.name,
+                world_time=payload.world_time or world_clock.view(owner.game_seconds).label,
+                player_text=request.user_text,
+                npc_reply=result.npc_response,
+                previous_dialogue=dialogue_history[-6:],
+                **plans.decision_context(db, owner, npc),
+            ))
+            update, plan_memories = plans.apply_decision(
+                db, owner, npc, decision, owner.game_seconds, npc_dialogue.id if npc_dialogue else None,
+            )
+            if update is not None:
+                result.plan_update = update.model_dump()
+            result.new_memories.extend(plan_memories)
+        except Exception:
+            logger.exception("Plan judgment failed for session %s", session.id)
+
+    if npc is not None:
+        if result.accepted and result.response_speaker == "npc":
+            npc_memory.record_accepted_turn(db, session.user_id, session.id, npc)
+        db.flush()
+        result.relationship = npc_memory.relationship_view(db, session.user_id, npc).model_dump()
 
     db.add(
         LearningTurnEvent(
