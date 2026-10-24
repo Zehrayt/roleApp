@@ -134,12 +134,52 @@ def _env(key: str, default: str = "") -> str:
     return os.getenv(key, "").strip() or default
 
 
+class _Fallback:
+    """Call the primary provider; if a call fails (e.g. Gemini 503 "high demand"), retry it on the secondary.
+
+    Used only when both GEMINI_API_KEY and GROQ_API_KEY are set, so a busy provider
+    no longer turns into an error for the player.
+    """
+
+    def __init__(self, primary, secondary, label: str):
+        self._primary = primary
+        self._secondary = secondary
+        self._label = label
+
+    def __getattr__(self, name: str):
+        primary = getattr(self._primary, name)
+        if not callable(primary):
+            return primary
+        secondary = getattr(self._secondary, name)
+
+        def call(*args, **kwargs):
+            try:
+                return primary(*args, **kwargs)
+            except Exception as error:  # noqa: BLE001 - any provider failure falls back
+                logger.warning("%s failed on the primary provider (%s); retrying on Groq", self._label, error)
+                return secondary(*args, **kwargs)
+
+        return call
+
+
+def _maybe_fallback(primary, make_secondary, label: str):
+    if _active_ai_provider() == "gemini" and _env("GROQ_API_KEY"):
+        return _Fallback(primary, make_secondary(), label)
+    return primary
+
+
 @lru_cache
 def get_correct_extraction_provider() -> ExtractionProvider:
     if _active_ai_provider() == "gemini":
-        return GeminiCorrectExtractionProvider(
-            api_key=_env("GEMINI_API_KEY"),
-            model=_env("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+        return _maybe_fallback(
+            GeminiCorrectExtractionProvider(
+                api_key=_env("GEMINI_API_KEY"),
+                model=_env("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+            ),
+            lambda: GroqCorrectExtractionProvider(
+                api_key=_env("GROQ_API_KEY"), model=_env("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            ),
+            "Correct-utterance extraction",
         )
     return GroqCorrectExtractionProvider(
         api_key=_env("GROQ_API_KEY"),
@@ -150,9 +190,15 @@ def get_correct_extraction_provider() -> ExtractionProvider:
 @lru_cache
 def get_incorrect_extraction_provider() -> ExtractionProvider:
     if _active_ai_provider() == "gemini":
-        return GeminiIncorrectExtractionProvider(
-            api_key=_env("GEMINI_API_KEY"),
-            model=_env("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+        return _maybe_fallback(
+            GeminiIncorrectExtractionProvider(
+                api_key=_env("GEMINI_API_KEY"),
+                model=_env("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+            ),
+            lambda: GroqIncorrectExtractionProvider(
+                api_key=_env("GROQ_API_KEY"), model=_env("GROQ_MODEL", "llama-3.3-70b-versatile"),
+            ),
+            "Incorrect-utterance extraction",
         )
     return GroqIncorrectExtractionProvider(
         api_key=_env("GROQ_API_KEY"),
@@ -171,9 +217,17 @@ def get_language_evaluator() -> LanguageEvaluator:
 
     estimator: PlausibilityEstimator
     if _active_ai_provider() == "gemini":
-        estimator = GeminiPlausibilityEstimator(
-            api_key=_env("GEMINI_API_KEY"),
-            model=_env("GEMINI_EVALUATOR_MODEL", _env("GEMINI_MODEL", "gemini-3.5-flash-lite")),
+        from modules.groq_client import DEFAULT_GROQ_FAST_MODEL
+
+        estimator = _maybe_fallback(
+            GeminiPlausibilityEstimator(
+                api_key=_env("GEMINI_API_KEY"),
+                model=_env("GEMINI_EVALUATOR_MODEL", _env("GEMINI_MODEL", "gemini-3.5-flash-lite")),
+            ),
+            lambda: GroqPlausibilityEstimator(
+                api_key=_env("GROQ_API_KEY"), model=_env("GROQ_EVALUATOR_MODEL", DEFAULT_GROQ_FAST_MODEL),
+            ),
+            "Language evaluation",
         )
     else:
         from modules.groq_client import DEFAULT_GROQ_FAST_MODEL
@@ -192,9 +246,17 @@ def get_language_evaluator() -> LanguageEvaluator:
 def get_correction_module() -> CorrectionModule:
     provider: CorrectionProvider
     if _active_ai_provider() == "gemini":
-        provider = GeminiCorrectionProvider(
-            api_key=_env("GEMINI_API_KEY"),
-            model=_env("CORRECTION_MODEL", _env("GEMINI_MODEL", "gemini-3.5-flash-lite")),
+        from modules.groq_client import DEFAULT_GROQ_FAST_MODEL
+
+        provider = _maybe_fallback(
+            GeminiCorrectionProvider(
+                api_key=_env("GEMINI_API_KEY"),
+                model=_env("CORRECTION_MODEL", _env("GEMINI_MODEL", "gemini-3.5-flash-lite")),
+            ),
+            lambda: GroqCorrectionProvider(
+                api_key=_env("GROQ_API_KEY"), model=_env("GROQ_CORRECTION_MODEL", DEFAULT_GROQ_FAST_MODEL),
+            ),
+            "Correction",
         )
     else:
         from modules.groq_client import DEFAULT_GROQ_FAST_MODEL
@@ -209,9 +271,13 @@ def get_correction_module() -> CorrectionModule:
 @lru_cache
 def get_npc_generator() -> TextGenerator:
     if _active_ai_provider() == "gemini":
-        return GeminiTextGenerator(
-            api_key=_env("GEMINI_API_KEY"),
-            model=_env("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+        return _maybe_fallback(
+            GeminiTextGenerator(
+                api_key=_env("GEMINI_API_KEY"),
+                model=_env("GEMINI_MODEL", "gemini-3.5-flash-lite"),
+            ),
+            lambda: GroqTextGenerator(api_key=_env("GROQ_API_KEY"), model=_env("GROQ_MODEL", "llama-3.3-70b-versatile")),
+            "NPC reply",
         )
     return GroqTextGenerator(
         api_key=_env("GROQ_API_KEY"),

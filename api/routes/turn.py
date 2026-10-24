@@ -1,6 +1,8 @@
 import logging
 from typing import Literal
 
+import httpx
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -142,7 +144,16 @@ async def process_turn(
 
 
 
-    result = await evaluate_and_respond(payload)
+    try:
+        result = await evaluate_and_respond(payload)
+    except httpx.HTTPError as error:
+        # Both AI providers were busy or down: tell the player instead of a bare 500.
+        logger.warning("AI service failed for session %s: %s", session.id, error)
+        who = npc.name if npc is not None else "The character"
+        raise HTTPException(
+            status_code=503,
+            detail=f"{who} couldn't answer right now because the AI service is busy. Please try again in a moment.",
+        ) from error
 
     inventory_decision = InventoryDecisionResponse()
     if session.mode == "adventure" and result.accepted and result.response_speaker == "npc":

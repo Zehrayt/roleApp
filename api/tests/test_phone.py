@@ -73,6 +73,16 @@ class PhoneTest(unittest.TestCase):
         texts = [m["text"] for m in self.client.get("/api/phone/sam", auth=self.auth).json()["messages"]]
         self.assertEqual(texts, ["Yes, let's meet!", "Cool! Café at six?"])
 
+    def test_busy_ai_gives_a_clear_503_not_a_500(self):
+        import httpx
+        thread = self.client.get("/api/phone/sam", auth=self.auth).json()
+        failure = httpx.HTTPStatusError("500", request=httpx.Request("POST", "http://ai"), response=httpx.Response(500))
+        with patch("routes.turn.evaluate_and_respond", new_callable=AsyncMock, side_effect=failure):
+            response = self.client.post(f"/api/session/{thread['session_id']}/turn",
+                                        json={"user_text": "Hi!"}, auth=self.auth)
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("Sam couldn't answer right now", response.json()["detail"])
+
     def test_shopkeepers_have_no_phone_thread(self):
         self.assertEqual(self.client.get("/api/phone/maya", auth=self.auth).status_code, 404)
 

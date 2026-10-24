@@ -110,7 +110,7 @@ Choose a scene and character, listen to each reference line, record your version
 
 The API applies checked-in Alembic migrations on startup. PostgreSQL stores guest profiles, dialogue, XP, coins, Adventure state and inventory, vocabulary, and learning analytics. Progress Journal shows profile, grammar, words, idioms, and activity. A new play session resets conversation context while account-level progress remains.
 
-The current guest-auth system is a prototype and does not provide production accounts. Speech is push-to-talk, not streaming. Provider selection is configuration-based; there is no automatic request-level failover.
+The current guest-auth system is a prototype and does not provide production accounts. Speech is push-to-talk, not streaming. Gemini is used when its key is set; if a Gemini call fails (for example a 503 "high demand"), the same call is retried on Groq when `GROQ_API_KEY` is set. If both fail, the player sees a short "couldn't answer right now" message instead of a server error.
 
 ## Development and validation
 
