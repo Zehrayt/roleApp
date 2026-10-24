@@ -48,6 +48,8 @@ class Rules(BaseModel):
     wait_minutes: int = Field(ge=1)
     hurt_after_minutes: int = Field(ge=0)
     reminder_before_minutes: int = Field(ge=0)
+    # After a kept meeting the NPC knows it is with the player for this long.
+    hangout_minutes: int = Field(default=120, ge=0)
 
 
 class Messages(BaseModel):
@@ -60,6 +62,11 @@ class PlansContent(BaseModel):
     places: list[KnownPlace] = Field(min_length=1)
     rules: Rules
     messages: Messages
+    # Cutscene per place for a kept meeting ("default" for the rest).
+    meeting_scenes: dict[str, str] = Field(default_factory=dict)
+
+    def scene_for(self, place_id: str) -> Optional[str]:
+        return self.meeting_scenes.get(place_id) or self.meeting_scenes.get("default")
 
     @model_validator(mode="after")
     def _consistent(self):
@@ -82,6 +89,7 @@ class AppointmentView(BaseModel):
     status: str
     late_minutes: int
     wait_minutes: int
+    scene_id: Optional[str] = None
 
 
 class PlanUpdate(BaseModel):
@@ -108,6 +116,7 @@ def view(appointment: Appointment) -> AppointmentView:
         place_id=appointment.place_id, place_name=place_name(appointment.place_id),
         game_seconds=appointment.game_seconds, label=clock_view(appointment.game_seconds).label,
         status=appointment.status, late_minutes=rules.late_minutes, wait_minutes=rules.wait_minutes,
+        scene_id=load_plans().scene_for(appointment.place_id),
     )
 
 
@@ -143,6 +152,16 @@ def plan_notes(db: Session, user: User, npc: npc_memory.NpcDef) -> list[str]:
         f"{rules.earliest} and {rules.latest}. If it is too soon, say you need more time; if it is "
         "too late, say it is too late for you, and suggest another time.",
     ]
+    hangout = _hangout(db, user, npc)
+    if hangout is not None:
+        notes.append(
+            f"Right now you are together with the player at {place_name(hangout.place_id)}: you met at "
+            f"{hhmm(hangout.game_seconds)} as you planned, and you are hanging out. Enjoy it: chat, joke and "
+            "suggest something to do here. Do not talk about meeting up as if you were apart."
+        )
+        summary = _scene_summary(load_plans().scene_for(hangout.place_id))
+        if summary:
+            notes.append(f"What just happened when you met: {summary}")
     current = planned(db, user.id, npc.id)
     if current:
         a = current[0]
@@ -155,6 +174,26 @@ def plan_notes(db: Session, user: User, npc: npc_memory.NpcDef) -> list[str]:
         notes.append(f"The player did not come to {place_name(miss.place_id)} at {place_label_time(miss.game_seconds)}. "
                      "You are a little hurt; you forgive them if they say sorry.")
     return notes
+
+
+def _hangout(db: Session, user: User, npc: npc_memory.NpcDef) -> Optional[Appointment]:
+    """A meeting that was kept and is still going on (the NPC and the player are together)."""
+    now = user.game_seconds or 0
+    window = load_plans().rules.hangout_minutes * 60
+    return (
+        db.query(Appointment)
+        .filter(Appointment.user_id == user.id, Appointment.npc_id == npc.id, Appointment.status == "kept",
+                Appointment.game_seconds <= now, Appointment.game_seconds + window >= now)
+        .order_by(Appointment.game_seconds.desc())
+        .first()
+    )
+
+
+def _scene_summary(scene_id: Optional[str]) -> Optional[str]:
+    from services.adventure_quests import load_cutscene
+
+    scene = load_cutscene(scene_id) if scene_id else None
+    return scene.get("summary") if scene else None
 
 
 def decision_context(db: Session, user: User, npc: npc_memory.NpcDef) -> dict:

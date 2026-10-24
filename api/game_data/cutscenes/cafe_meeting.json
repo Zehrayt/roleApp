@@ -2,17 +2,123 @@
   "id": "cafe_meeting",
   "title": "You made it!",
   "steps": [
-    { "camera": { "focus": { "x": 8, "z": 30 }, "zoom": 9 } },
-    { "walk": { "who": "sam", "to": { "x": 7, "z": 30 } } },
-    { "walk": { "who": "player", "to": { "x": 8, "z": 29 } } },
-    { "say": { "who": "sam", "text": "Hey, you made it! I got you a hot chocolate." } },
-    { "camera": { "focus": "leo", "zoom": 9 } },
-    { "say": { "who": "leo", "text": "He ordered it twenty minutes ago. It's not hot anymore!" } },
-    { "camera": { "focus": "sam", "zoom": 8 } },
-    { "say": { "who": "sam", "text": "Leo! Okay… it's a warm chocolate. Still good!" } },
-    { "title": { "text": "📷 An old photo: two kids and a broken raft", "seconds": 2.5 } },
-    { "say": { "who": "sam", "text": "Look. Our raft. Ten years ago." } },
-    { "say": { "who": "sam", "text": "This time, we read the book first. Promise?" } },
-    { "say": { "who": "sam", "text": "Meet me at the pier tomorrow morning. I'll bring the wood!" } }
-  ]
+    {
+      "camera": {
+        "focus": {
+          "x": 8,
+          "z": 30
+        },
+        "zoom": 9
+      }
+    },
+    {
+      "walk": {
+        "who": "sam",
+        "to": {
+          "x": 7,
+          "z": 30
+        }
+      }
+    },
+    {
+      "walk": {
+        "who": "player",
+        "to": {
+          "x": 8,
+          "z": 29
+        }
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "Hey, you made it! I got you a hot chocolate."
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "Thank you, Sam! That's so nice."
+      }
+    },
+    {
+      "camera": {
+        "focus": "leo",
+        "zoom": 9
+      }
+    },
+    {
+      "say": {
+        "who": "leo",
+        "text": "He ordered it twenty minutes ago. It's not hot anymore!"
+      }
+    },
+    {
+      "camera": {
+        "focus": "sam",
+        "zoom": 8
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "Leo! Okay… it's a warm chocolate. Still good!"
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "It's okay. I like warm chocolate!"
+      }
+    },
+    {
+      "title": {
+        "text": "📷 An old photo: two kids and a broken raft",
+        "seconds": 2.5
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "Look. Our raft. Ten years ago."
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "Look at us! We were so small."
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "This time, we read the book first. Promise?"
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "I promise. We read the book first."
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "Meet me at the pier tomorrow morning. I'll bring the wood!"
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "Deal! See you at the pier tomorrow."
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "Now sit down and drink your chocolate. Tell me everything!"
+      }
+    }
+  ],
+  "summary": "You gave the player a hot chocolate that went cold because you ordered it too early, Leo teased you about it, you showed the photo of your old raft from ten years ago, the player promised to read the boat book first, and you agreed to meet at the pier tomorrow morning to build the boat. Now you are sitting together at a table in the café."
 }

@@ -46,6 +46,8 @@ export interface Appointment {
   status: "planned" | "kept" | "missed" | "cancelled";
   late_minutes: number;
   wait_minutes: number;
+  /** Cutscene for a kept meeting at this place (api/game_data/plans.json). */
+  scene_id?: string | null;
 }
 
 export interface PlanUpdate {
@@ -178,6 +180,11 @@ export interface TtsVoiceProfile {
 }
 
 export const ROLEPLAY_TTS_PROFILES = {
+  /** The player's own character in cutscenes. */
+  player: {
+    voice: "autumn",
+    style: "Speak as a cheerful, warm young woman talking with old friends. Natural, friendly and relaxed pace.",
+  },
   friend: {
     voice: "troy",
     style: "Speak as an excited, energetic young man catching up with an old friend. Slightly breathless, laughs easily, natural relaxed pace.",

@@ -2,11 +2,66 @@
   "id": "meeting",
   "title": "You made it!",
   "steps": [
-    { "camera": { "focus": "sam", "zoom": 9 } },
-    { "walk": { "who": "player", "near": "sam" } },
-    { "say": { "who": "sam", "text": "Hey, you made it! Right on time… well, almost." } },
-    { "title": { "text": "📷 An old photo: two kids and a broken raft", "seconds": 2.5 } },
-    { "say": { "who": "sam", "text": "Look. Our raft. Ten years ago. This time, we read the book first. Promise?" } },
-    { "say": { "who": "sam", "text": "Meet me at the pier tomorrow morning. I'll bring the wood!" } }
-  ]
+    {
+      "camera": {
+        "focus": "sam",
+        "zoom": 9
+      }
+    },
+    {
+      "walk": {
+        "who": "player",
+        "near": "sam"
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "Hey, you made it! Right on time… well, almost."
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "Hi Sam! I'm here!"
+      }
+    },
+    {
+      "title": {
+        "text": "📷 An old photo: two kids and a broken raft",
+        "seconds": 2.5
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "Look. Our raft. Ten years ago. This time, we read the book first. Promise?"
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "I promise! We read the book first."
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "Meet me at the pier tomorrow morning. I'll bring the wood!"
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "Deal! See you tomorrow."
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "But we have time now. Come on, tell me everything!"
+      }
+    }
+  ],
+  "summary": "You met the player as planned, showed the photo of your old raft from ten years ago, the player promised to read the boat book first, and you agreed to meet at the pier tomorrow morning to build the boat. Now you are spending time together."
 }

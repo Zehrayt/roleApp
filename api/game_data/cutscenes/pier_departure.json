@@ -2,29 +2,185 @@
   "id": "pier_departure",
   "title": "At the pier",
   "steps": [
-    { "camera": { "focus": { "x": 20, "z": 51 }, "zoom": 12 } },
-    { "place": { "who": "sam", "cell": { "x": 20, "z": 53 } } },
-    { "walk": { "who": "player", "to": { "x": 19, "z": 52 } } },
-    { "when": "kept_meeting", "say": { "who": "sam", "text": "Right on time! Okay, page twelve says… the nails go here." } },
-    { "when": "missed_meeting", "say": { "who": "sam", "text": "You came. Good. Let's just… build this, okay?" } },
-    { "title": { "text": "Step 7: Check for holes.", "seconds": 2 } },
-    { "say": { "who": "sam", "text": "Holes? What holes? …Oh. That hole." } },
-    { "effect": "fade_out" },
-    { "place": { "who": "maya", "cell": { "x": 19, "z": 46 } } },
-    { "place": { "who": "lina", "cell": { "x": 20, "z": 46 } } },
-    { "effect": "fade_in" },
-    { "walk": { "who": "maya", "to": { "x": 19, "z": 49 }, "wait": false } },
-    { "walk": { "who": "lina", "to": { "x": 20, "z": 49 } } },
-    { "camera": { "focus": "maya", "zoom": 10 } },
-    { "say": { "who": "maya", "text": "I brought more rolls. You can't sail hungry!" } },
-    { "say": { "who": "lina", "text": "And please bring my book back. Dry." } },
-    { "camera": { "focus": "sam", "zoom": 9 } },
-    { "effect": "flash" },
-    { "title": { "text": "📷 Click!", "seconds": 1.5 } },
-    { "when": "kept_meeting", "say": { "who": "sam", "text": "Ten years later, and this time it floats!" } },
-    { "when": "missed_meeting", "say": { "who": "sam", "text": "Thanks for coming today. Really." } },
-    { "effect": "fade_out" },
-    { "title": { "text": "Chapter 3 — The Misty Pass. Coming soon.", "seconds": 3 } },
-    { "effect": "fade_in" }
-  ]
+    {
+      "camera": {
+        "focus": {
+          "x": 20,
+          "z": 51
+        },
+        "zoom": 12
+      }
+    },
+    {
+      "place": {
+        "who": "sam",
+        "cell": {
+          "x": 20,
+          "z": 53
+        }
+      }
+    },
+    {
+      "walk": {
+        "who": "player",
+        "to": {
+          "x": 19,
+          "z": 52
+        }
+      }
+    },
+    {
+      "when": "kept_meeting",
+      "say": {
+        "who": "sam",
+        "text": "Right on time! Okay, page twelve says… the nails go here."
+      }
+    },
+    {
+      "when": "missed_meeting",
+      "say": {
+        "who": "sam",
+        "text": "You came. Good. Let's just… build this, okay?"
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "Good morning, Sam! I have the book."
+      }
+    },
+    {
+      "title": {
+        "text": "Step 7: Check for holes.",
+        "seconds": 2
+      }
+    },
+    {
+      "say": {
+        "who": "sam",
+        "text": "Holes? What holes? …Oh. That hole."
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "Don't worry. Let's fix it together."
+      }
+    },
+    {
+      "effect": "fade_out"
+    },
+    {
+      "place": {
+        "who": "maya",
+        "cell": {
+          "x": 19,
+          "z": 46
+        }
+      }
+    },
+    {
+      "place": {
+        "who": "lina",
+        "cell": {
+          "x": 20,
+          "z": 46
+        }
+      }
+    },
+    {
+      "effect": "fade_in"
+    },
+    {
+      "walk": {
+        "who": "maya",
+        "to": {
+          "x": 19,
+          "z": 49
+        },
+        "wait": false
+      }
+    },
+    {
+      "walk": {
+        "who": "lina",
+        "to": {
+          "x": 20,
+          "z": 49
+        }
+      }
+    },
+    {
+      "camera": {
+        "focus": "maya",
+        "zoom": 10
+      }
+    },
+    {
+      "say": {
+        "who": "maya",
+        "text": "I brought more rolls. You can't sail hungry!"
+      }
+    },
+    {
+      "say": {
+        "who": "lina",
+        "text": "And please bring my book back. Dry."
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "I promise, Lina. Thank you both!"
+      }
+    },
+    {
+      "camera": {
+        "focus": "sam",
+        "zoom": 9
+      }
+    },
+    {
+      "effect": "flash"
+    },
+    {
+      "title": {
+        "text": "📷 Click!",
+        "seconds": 1.5
+      }
+    },
+    {
+      "when": "kept_meeting",
+      "say": {
+        "who": "sam",
+        "text": "Ten years later, and this time it floats!"
+      }
+    },
+    {
+      "when": "missed_meeting",
+      "say": {
+        "who": "sam",
+        "text": "Thanks for coming today. Really."
+      }
+    },
+    {
+      "say": {
+        "who": "player",
+        "text": "Let's go, Sam!"
+      }
+    },
+    {
+      "effect": "fade_out"
+    },
+    {
+      "title": {
+        "text": "Chapter 3 — The Misty Pass. Coming soon.",
+        "seconds": 3
+      }
+    },
+    {
+      "effect": "fade_in"
+    }
+  ],
+  "summary": "You and the player fixed the little boat at the pier, Maya brought rolls, Lina asked for her book back dry, you took a photo of everyone, and you sailed toward the misty pass together."
 }

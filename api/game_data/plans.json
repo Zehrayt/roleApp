@@ -13,8 +13,10 @@
     "late_minutes": 5,
     "wait_minutes": 60,
     "hurt_after_minutes": 10,
-    "reminder_before_minutes": 60
+    "reminder_before_minutes": 60,
+    "hangout_minutes": 120
   },
+  "meeting_scenes": { "cafe": "cafe_meeting", "default": "meeting" },
   "messages": {
     "reminder": "See you at {place} at {time}! 📷",
     "missed": ["I waited at {place} for an hour.", "It's okay. I'm just a little sad."],

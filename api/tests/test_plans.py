@@ -141,6 +141,23 @@ class PlansTest(unittest.TestCase):
         self.assertEqual(self.relationship("sam"), (before[0] + 5, before[1] + 12))
         self.assertEqual(self.client.post(f"/api/plans/{appointment_id}/arrive", auth=self.auth).status_code, 409)
 
+    def test_after_a_kept_meeting_sam_knows_you_are_together(self):
+        self.text_sam("Café at six?", "Deal!", PlanDecisionResponse(action="create", place_id="cafe", time="18:00"))
+        appointment_id = self.client.get("/api/plans", auth=self.auth).json()["plans"][0]["id"]
+        self.set_clock(18 * HOUR + 5 * 60)
+        arrived = self.client.post(f"/api/plans/{appointment_id}/arrive", auth=self.auth).json()
+        self.assertEqual(arrived["appointment"]["scene_id"], "cafe_meeting")
+
+        _, npc_request, _ = self.text_sam("This is fun!", "It is!", PlanDecisionResponse())
+        notes = " ".join(npc_request.plan_notes)
+        self.assertIn("Right now you are together with the player at Leo's café", notes)
+        self.assertIn("hot chocolate", notes)  # the cutscene's summary
+        self.assertIn("no plan with the player right now", notes)
+
+        self.set_clock(21 * HOUR)  # two game hours later the hangout is over
+        _, npc_request, _ = self.text_sam("Hi again", "Hey!", PlanDecisionResponse())
+        self.assertNotIn("Right now you are together", " ".join(npc_request.plan_notes))
+
     def test_a_new_time_replaces_the_old_plan_and_cancel_clears_it(self):
         self.text_sam("Café at six?", "Deal!", PlanDecisionResponse(action="create", place_id="cafe", time="18:00"))
         self.text_sam("Seven instead?", "Sure, seven!", PlanDecisionResponse(action="create", place_id="cafe", time="19:00"))

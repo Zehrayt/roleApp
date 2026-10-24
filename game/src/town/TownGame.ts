@@ -797,10 +797,13 @@ export class TownGame {
     void (async () => {
       this.storyBusy = true;
       try {
-        const played = await this.playScene(appointment.place_id === "cafe" ? "cafe_meeting" : "meeting");
+        const played = await this.playScene(appointment.scene_id ?? "meeting");
         if (!played) this.toast(`${appointment.npc_name}: "Hey, you made it!"`);
         if (memory) this.toast(memory);
         await this.refreshPlayerState();
+        // The scene ends at the table: keep hanging out with the friend in a real conversation.
+        const friend = this.actor(appointment.npc_id);
+        if (friend && !friend.hidden) this.openDialogue(friend);
       } finally {
         this.storyBusy = false;
       }
@@ -1288,12 +1291,14 @@ export class TownGame {
   }
 
   private async speakLine(who: string, text: string): Promise<void> {
-    const npc = this.actor(who);
-    if (!npc) throw new Error("Only NPC lines are voiced");
-    npc.character.talk(Math.min(8, 1.5 + text.split(/\s+/).length * 0.35), performance.now());
-    const api = this.apiFor(npc.spec.location);
+    const seconds = Math.min(8, 1.5 + text.split(/\s+/).length * 0.35);
+    const npc = who === "player" ? null : this.actor(who);
+    if (who !== "player" && !npc) throw new Error(`Unknown speaker ${who}`);
+    (npc ? npc.character : this.player).talk(seconds, performance.now());
+    const api = this.apiFor(npc ? npc.spec.location : "bakery");
     if (!api) throw new Error("No voice");
-    const blob = await api.synthesizeSpeech(text, ROLEPLAY_TTS_PROFILES[npc.spec.voice]);
+    const profile = npc ? ROLEPLAY_TTS_PROFILES[npc.spec.voice] : ROLEPLAY_TTS_PROFILES.player;
+    const blob = await api.synthesizeSpeech(text, profile);
     const url = URL.createObjectURL(blob);
     try {
       const audio = new Audio(url);
