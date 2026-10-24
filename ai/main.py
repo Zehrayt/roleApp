@@ -115,7 +115,10 @@ def health():
 
 
         ai_provider = "unconfigured"
-    return {"status": "ok", "service": "ai", "ai_provider": ai_provider}
+    return {
+        "status": "ok", "service": "ai", "ai_provider": ai_provider,
+        "npc_dialogue": "nvidia-nemotron@nebius" if _env("NEBIUS_API_KEY") else ai_provider,
+    }
 
 
 def _active_ai_provider() -> str:
@@ -270,6 +273,20 @@ def get_correction_module() -> CorrectionModule:
 
 @lru_cache
 def get_npc_generator() -> TextGenerator:
+    fallback = _base_npc_generator()
+    if _env("NEBIUS_API_KEY"):
+        # NPC dialogue runs on NVIDIA Nemotron via Nebius Token Factory; Gemini/Groq stay as fallbacks.
+        from modules.nebius_client import NebiusTextGenerator
+
+        return _Fallback(
+            NebiusTextGenerator(api_key=_env("NEBIUS_API_KEY"), model=_env("NEBIUS_MODEL") or None),
+            fallback,
+            "NPC reply (Nemotron)",
+        )
+    return fallback
+
+
+def _base_npc_generator() -> TextGenerator:
     if _active_ai_provider() == "gemini":
         return _maybe_fallback(
             GeminiTextGenerator(

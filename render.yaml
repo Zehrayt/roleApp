@@ -60,6 +60,10 @@ services:
         value: "gemini-3.1-flash-tts-preview"
       - key: GROQ_API_KEY
         sync: false
+      - key: NEBIUS_API_KEY
+        sync: false # NVIDIA Nemotron on Nebius Token Factory for NPC dialogue
+      - key: NEBIUS_MODEL
+        value: ""
       - key: GROQ_MODEL
         value: "llama-3.3-70b-versatile"
       - key: GROQ_EVALUATOR_MODEL

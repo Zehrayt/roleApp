@@ -33,6 +33,9 @@ services:
       - CORRECTION_MODEL=${CORRECTION_MODEL:-gemini-3.5-flash-lite}
       - STT_MODEL=${STT_MODEL:-gemini-3.5-transcribe}
       - GROQ_API_KEY=${GROQ_API_KEY:-}
+      # NVIDIA Nemotron on Nebius Token Factory for NPC dialogue (falls back to Gemini/Groq).
+      - NEBIUS_API_KEY=${NEBIUS_API_KEY:-}
+      - NEBIUS_MODEL=${NEBIUS_MODEL:-}
       - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
       - GROQ_INVENTORY_MODEL=${GROQ_INVENTORY_MODEL:-openai/gpt-oss-120b}
       # Fast Groq "instant" model used by default for evaluation and correction.
