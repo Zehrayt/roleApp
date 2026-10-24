@@ -114,6 +114,11 @@ export class TownGame {
   private readonly coreApi: PraglishApiClient;
   private readonly openedGates = new Set<string>();
   private followCheckAt = 0;
+  private nearCompanion: NpcRuntime | null = null;
+  /** Everyone in talking range, the companion last: T talks to the first, 1–9 picks one. */
+  private talkers: NpcRuntime[] = [];
+  /** The companion was told "Wait here" (H) and stays put until called again. */
+  private companionWaiting = false;
   private beaconLit = false;
   private readonly upperMeshes = new Map<string, THREE.Mesh>();
   private readonly player: BlockCharacter;
@@ -432,7 +437,10 @@ export class TownGame {
     });
     const prompt = hud.querySelector<HTMLButtonElement>(".town-prompt");
     if (!prompt) throw new Error("HUD prompt missing");
-    prompt.addEventListener("click", () => this.interact());
+    prompt.addEventListener("click", () => {
+      if (this.interaction && this.interaction.kind !== "npc") this.interact();
+      else if (this.talkers[0]) this.openDialogue(this.talkers[0]);
+    });
     return prompt;
   }
 
@@ -482,7 +490,10 @@ export class TownGame {
         else if (k === "m" && this.activePanel === this.phone) this.phone.close();
         return;
       }
-      if (k === "t" && this.interaction?.kind === "npc") this.interact();
+      const picked = /^[1-9]$/.test(k) && this.talkers.length > 1 ? this.talkers[Number(k) - 1] : undefined;
+      if (k === "t" && this.talkers[0]) this.openDialogue(this.talkers[0]);
+      else if (picked) this.openDialogue(picked);
+      else if (k === "h" && this.companion()) this.toggleCompanionWait();
       else if (k === "enter") this.interact();
       else if (k === "f" && this.nearestProp) this.openVocab(this.nearestProp);
       else if (k === "b") this.openSpellBook();
@@ -1263,11 +1274,17 @@ export class TownGame {
       const start = this.nearestStandable(this.cell.x + 1, this.cell.z);
       if (start) this.moveNpcTo(npc, start, true);
     }
+    if (this.companionWaiting) {
+      npc.path = [];
+      return this.stepAlongPath(npc, dt);
+    }
     const now = performance.now();
     const dist = Math.hypot(npc.cell.x - this.cell.x, npc.cell.z - this.cell.z);
     if (now >= this.followCheckAt && !npc.panel?.isOpen && !npc.stepFrom) {
       this.followCheckAt = now + 400;
-      if (dist > 2.5) {
+      const crowding = this.npcs.some((o) => o !== npc && !o.hidden
+        && Math.hypot(o.cell.x - npc.cell.x, o.cell.z - npc.cell.z) < 1.6);
+      if (dist > 2.5 || crowding) {
         const near = this.cellBesidePlayer(npc);
         npc.path = near ? this.npcRoute(npc, near) ?? [] : [];
       } else {
@@ -1279,19 +1296,54 @@ export class TownGame {
   }
 
   private cellBesidePlayer(npc: NpcRuntime): Cell | null {
+    // Prefer a cell behind the player and away from anyone the player might talk to,
+    // so the companion never steps in between the player and another NPC.
+    const fx = Math.sin(this.player.yaw);
+    const fz = Math.cos(this.player.yaw);
+    const others = this.npcs.filter((o) => o !== npc && !o.hidden);
     let best: Cell | null = null;
-    let bestDist = Infinity;
-    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]] as const) {
-      const x = this.cell.x + dx;
-      const z = this.cell.z + dz;
-      if (!this.grid.isWalkable(x, z) && !(npc.cell.x === x && npc.cell.z === z)) continue;
-      const d = Math.hypot(x - npc.cell.x, z - npc.cell.z);
-      if (d < bestDist) {
-        bestDist = d;
-        best = { x, z };
+    let bestScore = Infinity;
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -2; dz <= 2; dz++) {
+        if (dx === 0 && dz === 0) continue;
+        const ring = Math.hypot(dx, dz);
+        if (ring > 2.3) continue;
+        const x = this.cell.x + dx;
+        const z = this.cell.z + dz;
+        if (!this.grid.isWalkable(x, z) && !(npc.cell.x === x && npc.cell.z === z)) continue;
+        if (others.some((o) => o.cell.x === x && o.cell.z === z)) continue;
+        let score = Math.hypot(x - npc.cell.x, z - npc.cell.z) * 0.6 + ring * 0.5;
+        score += ((dx * fx + dz * fz) / ring + 1) * 2; // in front of the player costs more
+        for (const o of others) {
+          const d = Math.hypot(o.cell.x - x, o.cell.z - z);
+          if (d < 2.5) score += (2.5 - d) * 3;
+        }
+        if (score < bestScore) {
+          bestScore = score;
+          best = { x, z };
+        }
       }
     }
     return best;
+  }
+
+  /** The NPC walking with the player in this world, if any. */
+  private companion(): NpcRuntime | null {
+    return this.npcs.find((npc) => npc.spec.follows && !npc.hidden) ?? null;
+  }
+
+  /** H: tell the companion to wait here, or call them back. */
+  private toggleCompanionWait(): void {
+    const npc = this.companion();
+    if (!npc) return;
+    this.companionWaiting = !this.companionWaiting;
+    const line = this.companionWaiting ? "Okay, I'll wait here!" : "Coming!";
+    npc.bubbleText.textContent = line;
+    npc.replyUntil = performance.now() + 2500;
+    this.followCheckAt = 0;
+    this.toast(this.companionWaiting
+      ? `${npc.spec.name} is waiting here. Press H when you want them back.`
+      : `${npc.spec.name} is coming with you.`);
   }
 
   // ---------------------------------------------------------------- story (Kademe 2)
@@ -1409,6 +1461,7 @@ export class TownGame {
     this.activePanel?.close();
     this.keys.clear();
     this.path = [];
+    this.companionWaiting = false;
     this.pendingTalk = null;
     this.pendingProp = null;
     this.pendingActivity = null;
@@ -1587,11 +1640,19 @@ export class TownGame {
     for (const [id, mesh] of this.upperMeshes) mesh.visible = id !== inside?.id;
 
     // What can the player do right now?
+    // The companion walks with the player, so it must never hide a door, boat or gate:
+    // other NPCs first, then the place itself, and the companion only when nothing else is here.
     let nearest: NpcRuntime | null = null;
+    this.nearCompanion = null;
     for (const npc of this.npcs) {
       if (npc.hidden) continue;
       const d = this.distanceTo(npc);
-      if (d <= TALK_RANGE && (!nearest || d < this.distanceTo(nearest))) nearest = npc;
+      if (d > TALK_RANGE) continue;
+      if (npc.spec.follows) {
+        this.nearCompanion = npc;
+        continue;
+      }
+      if (!nearest || d < this.distanceTo(nearest)) nearest = npc;
     }
     if (nearest) this.interaction = { kind: "npc", npc: nearest };
     else if (inside?.activity && this.nearActivity(inside)) this.interaction = { kind: "activity", building: inside };
@@ -1601,6 +1662,10 @@ export class TownGame {
       const gate = !inside && !boat ? this.nearbyGate() : null;
       this.interaction = boat ? { kind: "boat", boat } : gate ? { kind: "gate", gate } : null;
     }
+    if (!this.interaction && this.nearCompanion) this.interaction = { kind: "npc", npc: this.nearCompanion };
+    this.talkers = this.npcs
+      .filter((npc) => !npc.hidden && this.distanceTo(npc) <= TALK_RANGE)
+      .sort((a, b) => Number(!!a.spec.follows) - Number(!!b.spec.follows) || this.distanceTo(a) - this.distanceTo(b));
 
     // Nearest vocabulary prop in the same building.
     this.nearestProp = null;
@@ -1633,26 +1698,37 @@ export class TownGame {
     }
 
     const it = this.interaction;
-    const showPrompt = it !== null && !(it.kind === "npc" && it.npc.panel?.isOpen);
-    this.prompt.hidden = !showPrompt;
-    if (it && showPrompt) {
-      this.prompt.textContent = it.kind === "npc"
-        ? `T · Talk to ${it.npc.spec.name}`
-        : it.kind === "boat"
-          ? `Enter · ${it.boat.label}`
+    const parts: string[] = [];
+    if (it && it.kind !== "npc") {
+      parts.push(it.kind === "boat"
+        ? `Enter · ${it.boat.label}`
         : it.kind === "gate"
           ? `Enter · ${this.openedGates.has(it.gate.id) ? "The gate is open" : "Cast a spell"}`
         : it.building.activity
           ? `${it.building.activity.key} · ${it.building.activity.label}`
-          : `Enter · ${it.building.portal?.label ?? "Enter"}`;
+          : `Enter · ${it.building.portal?.label ?? "Enter"}`);
     }
+    const only = this.talkers.length === 1 ? this.talkers[0] : undefined;
+    if (only) parts.push(`T · Talk to ${only.spec.name}`);
+    else if (this.talkers.length > 1) {
+      parts.push(`Talk: ${this.talkers.slice(0, 9).map((n, i) => `${i + 1} · ${n.spec.name}`).join("   ")}`);
+    }
+    const companion = this.companion();
+    if (companion && (this.companionWaiting || this.nearCompanion)) {
+      parts.push(this.companionWaiting ? `H · Call ${companion.spec.name}` : "H · Wait here");
+    }
+    const talking = this.talkers.some((n) => n.panel?.isOpen);
+    const showPrompt = parts.length > 0 && !talking;
+    this.prompt.hidden = !showPrompt;
+    if (showPrompt) this.prompt.textContent = parts.join("   ·   ");
   }
 
   private updateOverlays(now: number): void {
     for (const label of this.labels) this.place(label.el, label.anchor);
     for (const npc of this.npcs) {
       const hasReply = now < npc.replyUntil;
-      const show = !npc.hidden && (hasReply || (npc.near && !npc.panel?.isOpen));
+      const idleOk = !npc.spec.follows || this.interaction?.kind === "npc" && this.interaction.npc === npc;
+      const show = !npc.hidden && (hasReply || (npc.near && idleOk && !npc.panel?.isOpen));
       npc.bubble.hidden = !show;
       if (!show) continue;
       if (!hasReply) npc.bubbleText.textContent = npc.spec.greeting;
